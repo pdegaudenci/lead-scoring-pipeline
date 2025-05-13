@@ -54,7 +54,10 @@ Tareas:
 ### 2.4 Cargar los Datos de Leads en AWS S3 (Simulado con LocalStack)
 
 * Carga de  archivos de ejemplo de leads en S3 para simular el proceso. Cada archivo contendrá un JSON con los datos del lead.
+* 
+### 2.5 Servir Datos desde Snowflake a FastAPI
 
+* Configurar FastAPI para conectarse a Snowflake y exponer endpoints para consultar los leads puntuados.
 ---
 
 ## 📅 Día 1: Ingesta y Procesamiento de Datos en Snowflake
