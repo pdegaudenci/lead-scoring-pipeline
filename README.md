@@ -20,21 +20,21 @@ Tareas:
 Arquitectura Propuesta:
 
 * **Entrada de Datos (AWS LocalStack + S3)**: Los leads serán almacenados en archivos en S3 (simulado con LocalStack en tu entorno local). Los datos de cada lead estarán en formato JSON.
-* **Procesamiento de Datos (AWS Lambda / Snowflake UDF)**: Utilizar una función en AWS Lambda o una UDF en Snowflake para procesar cada lead.
+* **Procesamiento de Datos ( Snowflake UDF)**: Utilizar  una UDF en Snowflake para procesar cada lead.
 * **Modelo de Scoring (ML)**: Crear un modelo básico de scoring usando Python o reglas simples.
 * **Almacenamiento de Resultados (Snowflake)**: Los resultados del scoring se almacenarán en una tabla de Snowflake.
 * **Interfaz de Consulta**: Una consulta SQL que permita al cliente revisar los resultados de los leads puntuados.
 
 ---
 
-## 📅 Día 2: Desarrollo de la Funcionalidad Básica
+## 📅 Día 1: Desarrollo de la Funcionalidad Básica
 
 ### 2.1 Configuración del Entorno Local (AWS LocalStack + Snowflake)
 
 Tareas:
 
-* Configurar LocalStack para emular servicios de AWS S3 y Lambda.
-* Configurar Snowflake (puedes usar un entorno en la nube o local para pruebas).
+* Configurar LocalStack para emular servicios de AWS S3 .
+* Configurar Snowflake
 * Configurar AWS SDK (Boto3) y librerías necesarias para interactuar con LocalStack y Snowflake.
 
 ### 2.2 Desarrollo del Modelo de Scoring
@@ -42,24 +42,19 @@ Tareas:
 * Desarrollar un modelo simple para calificar leads.
 * Implementar reglas de negocio básicas para puntuar cada lead en función de su origen o características.
 
-### 2.3 Implementación de la Función de Scoring (Lambda / UDF)
+### 2.3 Implementación de la Función de Scoring (UDF)
 
-* **AWS Lambda**:
+* **Snowflake UDF**:
 
-  * Crear una función Lambda que procese los datos de los leads, ejecute el modelo de scoring y almacene los resultados en Snowflake.
-  * La Lambda se activará cuando un nuevo archivo se cargue en S3 (simulado con LocalStack).
-
-* **Alternativa (Snowflake UDF)**:
-
-  * Si prefieres hacerlo todo en Snowflake, crea una UDF (función definida por el usuario) en Python que reciba los datos del lead (en formato JSON) y calcule la puntuación.
+  *  UDF (función definida por el usuario) en Python que reciba los datos del lead (en formato JSON) y calcule la puntuación.
 
 ### 2.4 Cargar los Datos de Leads en AWS S3 (Simulado con LocalStack)
 
-* Carga algunos archivos de ejemplo de leads en S3 para simular el proceso. Cada archivo contendrá un JSON con los datos del lead.
+* Carga de  archivos de ejemplo de leads en S3 para simular el proceso. Cada archivo contendrá un JSON con los datos del lead.
 
 ---
 
-## 📅 Día 3: Ingesta y Procesamiento de Datos en Snowflake
+## 📅 Día 1: Ingesta y Procesamiento de Datos en Snowflake
 
 ### 3.1 Configuración de Snowpipe para Automatización
 
@@ -144,7 +139,7 @@ CALL apply_scoring();
 
 ---
 
-## ✅ Próximos Pasos
+## ✅ Mejoras
 
 * Integrar monitoreo y alertas para Snowpipe.
 * Mejorar las reglas de scoring.
