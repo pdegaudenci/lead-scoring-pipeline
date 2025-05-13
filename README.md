@@ -32,10 +32,13 @@ Arquitectura Propuesta:
 ### 2.1 Configuración del Entorno Local (AWS LocalStack + Snowflake)
 
 Tareas:
+* Configurar LocalStack para emular servicios de AWS S3 y Lambda.
 
-* Configurar LocalStack para emular servicios de AWS S3 .
-* Configurar Snowflake
+* Configurar Snowflake 
+
 * Configurar AWS SDK (Boto3) y librerías necesarias para interactuar con LocalStack y Snowflake.
+
+* Crear un contenedor Docker para FastAPI que se conecte a LocalStack y Snowflake.
 
 ### 2.2 Desarrollo del Modelo de Scoring
 
