@@ -52,6 +52,16 @@ SNOWFLAKE_ROLE=SYSADMIN
 ```
 
 ---
+## Componentes necesarios en snowflake
+
+| Componente         | Detalle                                       |
+| ------------------ | --------------------------------------------- |
+| Tabla en Snowflake | `leads_raw(filename STRING, data VARIANT)`    |
+| Stage              | Apunta a bucket `leads-bucket` en LocalStack  |
+| Snowpipe           | Carga desde `@mystage` usando `PARSE_JSON`    |
+| FastAPI            | Subir a S3 y luego `REFRESH PIPE` manual      |
+| Consulta           | Lee desde Snowflake y descompone el `VARIANT` |
+
 
 ## 🚀 Despliegue con Docker
 
