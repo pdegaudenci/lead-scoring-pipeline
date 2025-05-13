@@ -6,6 +6,125 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 
 ---
 
+
+# 🛠️ Configuración del Entorno
+
+Este proyecto requiere un archivo `.env` con variables de entorno específicas para conectarse a servicios como AWS (LocalStack) y Snowflake. A continuación, se describen los pasos para configurar y ejecutar correctamente el entorno.
+
+---
+
+## 📁 Estructura esperada
+
+Asegúrate de que el archivo `.env` esté ubicado dentro de una carpeta `env/` en la raíz del proyecto:
+
+```
+project-root/
+│
+├── env/
+│   └── .env
+├── docker-compose.yml
+└── ...
+```
+
+---
+
+## 📌 Prerrequisitos
+
+Crea un archivo `.env` dentro de la carpeta `env/` con el siguiente contenido:
+
+```env
+# Archivo: env/.env
+
+# Configuración de AWS y LocalStack
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+S3_ENDPOINT_URL=http://localstack:4566
+S3_BUCKET=leads-bucket
+
+# Credenciales de Snowflake
+SNOWFLAKE_USER=your_user
+SNOWFLAKE_PASSWORD=your_password
+SNOWFLAKE_ACCOUNT=your_account_id
+SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+SNOWFLAKE_DATABASE=LEADS_DB
+SNOWFLAKE_SCHEMA=PUBLIC
+SNOWFLAKE_ROLE=SYSADMIN
+```
+
+> 🛑 **Nota:** Reemplaza los valores como `your_user` y `your_password` con tus credenciales reales. Nunca subas este archivo a un repositorio público.
+
+---
+
+## 🚫 .gitignore recomendado
+
+Asegúrate de que la carpeta `env/` y su contenido estén excluidos del control de versiones. Agrega lo siguiente a tu archivo `.gitignore`:
+
+```gitignore
+# Ignorar archivo de configuración sensible
+env/.env
+```
+
+---
+
+## 🚀 Despliegue con Docker
+
+Sigue estos pasos para levantar los servicios con Docker y cargar las variables de entorno desde el archivo `.env`:
+
+1. Abre una terminal en la raíz del proyecto.
+2. Ejecuta el siguiente comando:
+
+```bash
+docker-compose --env-file env/.env up --build
+```
+
+Esto levantará los contenedores usando las variables definidas en `env/.env`.
+
+---
+
+## ✅ Verificación de variables de entorno
+
+Para asegurarte de que las variables de entorno se estén utilizando correctamente dentro del contenedor:
+
+1. Obtén el nombre del contenedor en ejecución:
+
+```bash
+docker ps
+```
+
+2. Accede al contenedor e imprime las variables de entorno:
+
+```bash
+docker exec -it <nombre_del_contenedor> env
+```
+
+3. También puedes revisar los logs del contenedor:
+
+```bash
+docker logs <nombre_del_contenedor>
+```
+
+Busca las variables como `S3_ENDPOINT_URL` o `SNOWFLAKE_ACCOUNT` en la salida de los logs o del entorno.
+
+---
+
+## 🔐 Seguridad
+
+- **No compartas el archivo `.env`.**
+- **Usa un gestor de secretos si vas a desplegar en producción (ej. AWS Secrets Manager, Azure Key Vault, etc.).**
+- **Revisa siempre que `env/.env` esté en el `.gitignore`.**
+
+---
+
+## 🧪 Comprobación rápida (opcional)
+
+Puedes probar que la variable del bucket de S3 se carga correctamente ejecutando un comando dentro del contenedor (ejemplo):
+
+```bash
+echo $S3_BUCKET
+```
+
+---
+
 ## 📅 Día 1: Preparación y Diseño del Sistema
 
 ### 1.1 Análisis del Proyecto y Requisitos
