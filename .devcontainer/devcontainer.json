@@ -1,0 +1,10 @@
+{
+  "name": "Lead Scoring Workspace",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "fastapi",
+  "workspaceFolder": "/workspace",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": ["ms-python.python"]
+}

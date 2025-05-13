@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - localstack_network
+
+  fastapi:
+    build:
+      context: .  # Asegura que la ruta del Dockerfile sea correcta
+      dockerfile: Dockerfile  # Si tienes un Dockerfile específico
+    container_name: fastapi
+    ports:
+      - "8000:80"
+    depends_on:
+      - localstack
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - S3_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=leads-bucket
+      - PYTHONPATH=/app  # Aquí configuramos el PYTHONPATH para que apunte al directorio correcto
+    volumes:
+      - ./app:/app  # Asegúrate de que ./app esté en la raíz de tu proyecto
+    networks:
+      - localstack_network
+
+networks:
+  localstack_network:
+    driver: bridge
+
