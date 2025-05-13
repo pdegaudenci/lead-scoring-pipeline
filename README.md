@@ -51,19 +51,6 @@ SNOWFLAKE_SCHEMA=PUBLIC
 SNOWFLAKE_ROLE=SYSADMIN
 ```
 
-> 🛑 **Nota:** Reemplaza los valores como `your_user` y `your_password` con tus credenciales reales. Nunca subas este archivo a un repositorio público.
-
----
-
-## 🚫 .gitignore recomendado
-
-Asegúrate de que la carpeta `env/` y su contenido estén excluidos del control de versiones. Agrega lo siguiente a tu archivo `.gitignore`:
-
-```gitignore
-# Ignorar archivo de configuración sensible
-env/.env
-```
-
 ---
 
 ## 🚀 Despliegue con Docker
@@ -83,8 +70,6 @@ Esto levantará los contenedores usando las variables definidas en `env/.env`.
 
 ## ✅ Verificación de variables de entorno
 
-Para asegurarte de que las variables de entorno se estén utilizando correctamente dentro del contenedor:
-
 1. Obtén el nombre del contenedor en ejecución:
 
 ```bash
@@ -97,23 +82,16 @@ docker ps
 docker exec -it <nombre_del_contenedor> env
 ```
 
-3. También puedes revisar los logs del contenedor:
+3. Revisar los logs del contenedor:
 
 ```bash
 docker logs <nombre_del_contenedor>
 ```
 
-Busca las variables como `S3_ENDPOINT_URL` o `SNOWFLAKE_ACCOUNT` en la salida de los logs o del entorno.
+
 
 ---
 
-## 🔐 Seguridad
-
-- **No compartas el archivo `.env`.**
-- **Usa un gestor de secretos si vas a desplegar en producción (ej. AWS Secrets Manager, Azure Key Vault, etc.).**
-- **Revisa siempre que `env/.env` esté en el `.gitignore`.**
-
----
 
 ## 🧪 Comprobación rápida (opcional)
 
