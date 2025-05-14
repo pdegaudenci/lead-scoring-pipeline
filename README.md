@@ -26,7 +26,7 @@ AWS_SECRET_ACCESS_KEY=test
 S3_ENDPOINT_URL=http://localstack:4566
 S3_BUCKET=leads-bucket
 
-# Credenciales de Snowflake
+# Credenciales de Snowflake (En el icono de perfil --> Account --> View account details)
 SNOWFLAKE_USER=your_user
 SNOWFLAKE_PASSWORD=your_password
 SNOWFLAKE_ACCOUNT=your_account_id
