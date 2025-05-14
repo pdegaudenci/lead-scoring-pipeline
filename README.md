@@ -13,21 +13,6 @@ Este proyecto requiere un archivo `.env` con variables de entorno específicas p
 
 ---
 
-## 📁 Estructura esperada
-
-Asegúrate de que el archivo `.env` esté ubicado dentro de una carpeta `env/` en la raíz del proyecto:
-
-```
-project-root/
-│
-├── env/
-│   └── .env
-├── docker-compose.yml
-└── ...
-```
-
----
-
 ## 📌 Prerrequisitos
 
 Crea un archivo `.env` dentro de la carpeta `env/` con el siguiente contenido:
