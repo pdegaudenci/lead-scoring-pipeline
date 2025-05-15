@@ -2,7 +2,7 @@ import os
 import snowflake.connector
 from pathlib import Path
 from dotenv import load_dotenv
-
+import logging
 env_path = Path("env") / ".env"
 load_dotenv(dotenv_path=env_path)
 
@@ -38,33 +38,38 @@ def get_connection():
 # Función para subir el archivo a Snowflake
 def upload_to_snowflake(filepath: str, filename: str):
     """
-    Sube archivo CSV a un stage y lo carga como objetos JSON en la tabla leads_raw
+    Sube archivo JSON a un stage y lo carga como objetos JSON en la tabla leads_raw
     """
     sf_stage = "leads_internal_stage"
+    file_format = "json_as_variant"
+    
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
-        # Subir archivo al stage
-        cursor.execute(f"PUT file://{filepath} @{sf_stage}/{filename} OVERWRITE = TRUE")
+        # Subir archivo JSON al stage
+        put_command = f"PUT file://{filepath} @{sf_stage}/{filename} OVERWRITE = TRUE"
+        cursor.execute(put_command)
+        logging.info(f"✅ Archivo subido al stage: {put_command}")
 
-        # Cargar archivo CSV como una fila por registro y convertir a OBJECT (VARIANT)
-        cursor.execute(f"""
-            COPY INTO leads_raw
+        # Cargar el JSON a la tabla leads_raw
+        copy_command = f"""
+            COPY INTO leads_raw(filename, data)
             FROM (
-                SELECT
-                    PARSE_JSON(OBJECT_CONSTRUCT(*))
+                SELECT '{filename}' AS filename, $1
                 FROM @{sf_stage}/{filename}
-                FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1)
             )
-            FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"' SKIP_HEADER = 1)
+            FILE_FORMAT = (FORMAT_NAME = '{file_format}')
             ON_ERROR = 'CONTINUE'
-            ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE
-        """)
+        """
+        cursor.execute(copy_command)
+        logging.info(f"🚀 Datos copiados a leads_raw: {copy_command}")
 
         cursor.close()
         conn.close()
 
         return {"status": "file uploaded and copied into Snowflake", "filename": filename}
+
     except Exception as e:
+        logging.error(f"❌ Error al subir el archivo a Snowflake: {e}")
         return {"status": "error", "message": f"Exception occurred: {str(e)}"}
