@@ -95,7 +95,10 @@ Puedes probar que la variable del bucket de S3 se carga correctamente ejecutando
 ```bash
 echo $S3_BUCKET
 ```
-
+Probar que aplicacion de fast api se ejecuta correctamente 
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 ---
 
 ## 📅 Día 1: Preparación y Diseño del Sistema
