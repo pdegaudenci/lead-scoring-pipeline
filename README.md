@@ -83,8 +83,6 @@ docker exec -it <nombre_del_contenedor> env
 docker logs <nombre_del_contenedor>
 ```
 
-
-
 ---
 
 
@@ -98,6 +96,11 @@ echo $S3_BUCKET
 Probar que aplicacion de fast api se ejecuta correctamente 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+Probar subida de archivo a través del endpoint /upload-and-load/ en FastAPI:
+```bash
+curl -X 'POST' 'http://0.0.0.0:8000/upload-and-load/' -F 'file=@/workspaces/lead-scoring-pipeline/data/SampleData.csv'
+
 ```
 ---
 
