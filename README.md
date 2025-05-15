@@ -5,7 +5,50 @@
 Crear una solución que reciba datos de leads, realice una puntuación (**scoring**) utilizando un modelo simple y almacene los resultados de manera estructurada en Snowflake. Esto incluye la ingesta de datos desde S3 (simulado con AWS LocalStack), el procesamiento del scoring y la automatización de la carga de datos.
 
 ---
+# 📈 Iterative Development – Sprints Overview (📅 Agile Sprint Plan)
 
+
+## Sprint 1 - Procesamiento de Leads
+
+### Funcionalidades Implementadas
+
+1. **Carga de Archivos CSV y JSON**
+   - Procesamiento de archivos CSV para convertirlos a formato JSON.
+   - Manejo de valores nulos y limpieza de datos para asegurar la integridad.
+   - Generación de archivos JSON y carga a Snowflake mediante stages internos.
+
+2. **Optimización del Pipeline**
+   - Ajustes en el formato de archivos para evitar problemas de formato (.json.gz).
+   - Implementación de scripts para manejar errores de datos y compatibilidad.
+
+3. **Validación de Archivos en Snowflake**
+   - Procedimientos almacenados para validar la estructura de archivos antes de cargar.
+   - Scripts para verificar la existencia de columnas y filas antes de insertar datos.
+
+### Problemas Encontrados
+
+- **Errores de Compresión y Formato**
+  - Los archivos se estaban subiendo como `.json.gz` en lugar de `.json`, causando errores de compatibilidad.
+  - Se corrigieron las configuraciones para usar formatos correctos y evitar errores de conteo de filas y columnas.
+
+- **Errores en Procedimientos Almacenados**
+  - Varios errores de sintaxis en procedimientos almacenados de Snowflake que requerían ajustes en la lógica.
+  - Manejo adecuado de excepciones y mensajes de error para identificar rápidamente problemas.
+
+- **Configuración de FastAPI**
+  - Inicialmente, los archivos se estaban subiendo incorrectamente debido a configuraciones en el código de FastAPI.
+  - Se ajustaron los métodos de carga para asegurar que los datos se carguen correctamente a Snowflake.
+
+### Soluciones Aplicadas
+
+- Uso de `INFER_SCHEMA` para validar la estructura de archivos JSON en Snowflake.
+- Ajustes en el código para eliminar compresiones innecesarias.
+- Implementación de mensajes de log para facilitar la depuración y monitoreo.
+
+### Próximos Pasos
+
+- Implementación de AWS Lambda y API Gateway para hacer el sistema más escalable.
+- Pruebas de carga y optimización del rendimiento para manejo de grandes volúmenes de datos.
 
 # 🛠️ Configuración del Entorno
 
