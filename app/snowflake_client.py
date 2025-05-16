@@ -48,7 +48,7 @@ def upload_to_snowflake(filepath: str, filename: str):
         cursor = conn.cursor()
 
         # Subir archivo JSON al stage
-        put_command = f"PUT file://{filepath} @{sf_stage}/{filename} OVERWRITE = TRUE"
+        put_command = f"PUT file://{filepath} @{sf_stage}/{filename} AUTO_COMPRESS=TRUE OVERWRITE=TRUE"
         cursor.execute(put_command)
         logging.info(f"✅ Archivo subido al stage: {put_command}")
 
@@ -57,7 +57,7 @@ def upload_to_snowflake(filepath: str, filename: str):
             COPY INTO leads_raw(filename, data)
             FROM (
                 SELECT '{filename}' AS filename, $1
-                FROM @{sf_stage}/{filename}
+                FROM @{sf_stage}/{filename}.gz
             )
             FILE_FORMAT = (FORMAT_NAME = '{file_format}')
             ON_ERROR = 'CONTINUE'
@@ -73,3 +73,4 @@ def upload_to_snowflake(filepath: str, filename: str):
     except Exception as e:
         logging.error(f"❌ Error al subir el archivo a Snowflake: {e}")
         return {"status": "error", "message": f"Exception occurred: {str(e)}"}
+

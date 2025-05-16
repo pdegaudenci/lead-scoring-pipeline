@@ -74,7 +74,7 @@ async def upload_and_load(file: UploadFile = File(...)):
 
     return {"status": "File processed and loaded to Snowflake", "filename": file.filename}
  """
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Response
 from upload_s3 import upload_file
 from snowflake_client import get_connection, upload_to_snowflake
 import tempfile
@@ -83,7 +83,11 @@ import pandas as pd
 import logging
 import json
 
+import gzip
+
+
 app = FastAPI()
+
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -163,4 +167,31 @@ async def upload_and_load(file: UploadFile = File(...)):
 
     return {"status": "File processed and loaded to Snowflake", "filename": file.filename}
     # Leer el archivo CSV a DataFrame
-    
+
+
+@app.get("/download")
+def download_file():
+    # Conectar a Snowflake
+    conn = get_connection()
+
+    cursor = conn.cursor()
+
+    # Descargar contenido del archivo desde la internal stage
+    sql = """
+    SELECT $1
+    FROM @leads_internal_stage/tmprqsaeu0j_cleaned.json/tmprqsaeu0j_cleaned.json.gz
+    (FILE_FORMAT => 'json_as_variant')
+    LIMIT 100;
+    """
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+
+    # Construir contenido como string JSONL (una línea por registro)
+    content = "\n".join([str(row[0]) for row in rows])
+
+    # Retornar como archivo descargable
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=prospectos.json"}
+    )
