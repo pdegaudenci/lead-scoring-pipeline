@@ -1,0 +1,13 @@
+{
+  "name": "Lead Scoring Workspace",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "fastapi",
+  "workspaceFolder": "/workspace",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": [
+    "ms-python.python"
+  ],
+  "postCreateCommand": "mkdir -p /home/codespace/.config/vscode-dev-containers && touch /home/codespace/.config/vscode-dev-containers/first-run-notice-already-displayed"
+}
