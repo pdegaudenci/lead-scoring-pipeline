@@ -190,7 +190,7 @@ SELECT $1:"prospect_id" AS prospect_id
 FROM @leads_internal_stage/tmprqsaeu0j_cleaned.json/tmprqsaeu0j_cleaned.json.gz
 (FILE_FORMAT => json_as_variant)
 LIMIT 5;
-
+```
 # 🛠️ Configuración del Entorno
 
 Este proyecto requiere un archivo `.env` con variables de entorno específicas para conectarse a servicios como AWS (LocalStack) y Snowflake. A continuación, se describen los pasos para configurar y ejecutar correctamente el entorno.
