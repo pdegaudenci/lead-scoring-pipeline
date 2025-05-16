@@ -26,10 +26,10 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
    - Scripts para verificar la existencia de columnas y filas antes de insertar datos.
 ### Problemas Encontrados
 
-- **Errores de Compresión y Formato**
+- **Errores de Compresión y Formato al subir fichero a snowflake**
   - Los archivos se estaban subiendo como `.json.gz` en lugar de `.json`, causando errores de compatibilidad.
   - Se corrigieron las configuraciones para usar formatos correctos y evitar errores de conteo de filas y columnas.
-  - Snowflake renombraba automáticamente los archivos con un UUID cuando se usaba `AUTO_COMPRESS=TRUE`, lo que causaba errores al referenciar el archivo en el comando `COPY INTO`.
+  - Snowflake renombraba automáticamente los archivos con un UUID cuando se usaba `AUTO_COMPRESS=TRUE`, lo que causaba errores al referenciar el archivo en el comando `COPY INTO` (Por lo tanto, el fichero se cargaba en la internal stage pero no se cargaba en la tabla destino.)
 
 - **Errores en Procedimientos Almacenados**
   - Varios errores de sintaxis en procedimientos almacenados de Snowflake que requerían ajustes en la lógica.
@@ -54,6 +54,7 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 ### Próximos Pasos
 
 - Implementación de AWS Lambda y API Gateway para hacer el sistema más escalable.
+- Mover la logica de transformaciones y carga de datos a ecosistema snowflake (Actualmente se ejecuta desde fastapi usando el conector de snowflake) 
 - Pruebas de carga y optimización del rendimiento para manejo de grandes volúmenes de datos.
 
 
