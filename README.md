@@ -248,7 +248,8 @@ SNOWFLAKE_ROLE=SYSADMIN
 ```
 
 ---
-## Componentes necesarios en snowflake
+
+## Componentes necesarios en Snowflake
 
 | Componente         | Detalle                                       |
 | ------------------ | --------------------------------------------- |
@@ -258,6 +259,7 @@ SNOWFLAKE_ROLE=SYSADMIN
 | FastAPI            | Subir a S3 y luego `REFRESH PIPE` manual      |
 | Consulta           | Lee desde Snowflake y descompone el `VARIANT` |
 
+---
 
 ## 🚀 Despliegue con Docker
 
@@ -273,6 +275,92 @@ docker-compose --env-file env/.env up --build
 Esto levantará los contenedores usando las variables definidas en `env/.env`.
 
 ---
+
+## 🛠 Configuración del Frontend en Codespaces
+
+Si estás usando Codespaces para el frontend, sigue estos pasos para asegurarte de que Node.js y npm estén correctamente configurados:
+
+### **1. Verificar si Node.js está Instalado**
+
+Primero, verifica si Node.js está instalado:
+
+```bash
+node -v
+npm -v
+```
+
+Si esto no devuelve un número de versión, significa que Node.js y npm no están instalados.
+
+---
+
+### **2. Instalar Node.js en Codespace**
+
+Si no están instalados, puedes usar nvm (Node Version Manager) para instalar Node.js:
+
+```bash
+# Instalar nvm (si no está instalado)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+
+# Cargar nvm en el terminal actual
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Verificar que nvm se instaló correctamente
+nvm --version
+```
+
+Ahora instala Node.js usando nvm:
+
+```bash
+# Instalar la última versión LTS de Node.js
+nvm install --lts
+
+# Usar esta versión por defecto
+nvm use --lts
+
+# Verificar que Node.js y npm están instalados correctamente
+node -v
+npm -v
+```
+
+---
+
+### **3. Instalar las Dependencias del Frontend**
+
+Ahora puedes ir a la carpeta `frontend` y ejecutar:
+
+```bash
+cd frontend
+npm install
+```
+
+---
+
+### **4. Crear un Archivo `.nvmrc` (Opcional pero Recomendado)**
+
+Para asegurarte de que siempre se use la misma versión de Node.js en tu proyecto, puedes crear un archivo `.nvmrc` en la raíz de tu proyecto con el siguiente contenido:
+
+```
+lts/*
+```
+
+---
+
+### **5. Verificar el PATH (Si Todavía Hay Problemas)**
+
+Si sigues teniendo problemas, asegúrate de que el PATH de nvm esté correctamente configurado. Puedes agregar esto a tu archivo `~/.bashrc`, `~/.zshrc` o `~/.bash_profile`:
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+```
+
+Luego, recarga el perfil:
+
+```bash
+source ~/.bashrc  # o ~/.zshrc o ~/.bash_profile, dependiendo de tu shell
+```
+
 
 ## ✅ Verificación de variables de entorno
 
