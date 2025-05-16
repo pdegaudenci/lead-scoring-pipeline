@@ -153,13 +153,12 @@ async def upload_and_load(file: UploadFile = File(...)):
 
     with open(cleaned_file_path, "w", encoding="utf-8") as json_file:
         for record in json_records:
-            json_file.write(json.dumps(record) + "\n")
-    
-    logging.info(f"💾 Archivo JSON limpio guardado en: {cleaned_file_path}")
+            json_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+        logging.info(f"💾 Archivo JSON limpio guardado en: {cleaned_file_path}")
 
     # Subir a Snowflake
     result = upload_to_snowflake(cleaned_file_path, cleaned_file_path.split('/')[-1])
-
+ 
     # Borrar el archivo temporal
     os.remove(tmp_file_path)
 
