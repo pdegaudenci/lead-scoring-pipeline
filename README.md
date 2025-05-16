@@ -5,7 +5,7 @@
 Crear una solución que reciba datos de leads, realice una puntuación (**scoring**) utilizando un modelo simple y almacene los resultados de manera estructurada en Snowflake. Esto incluye la ingesta de datos desde S3 (simulado con AWS LocalStack), el procesamiento del scoring y la automatización de la carga de datos.
 
 ---
-# 📈 Iterative Development – Sprints Overview (📅 Agile Sprint Plan)
+# 📈 Iterative Development – Sprints Overview (📅 Agile Sprint Plan). 2 Dias
 
 
 ## Sprint 1 - Procesamiento de Leads
@@ -24,12 +24,12 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 3. **Validación de Archivos en Snowflake**
    - Procedimientos almacenados para validar la estructura de archivos antes de cargar.
    - Scripts para verificar la existencia de columnas y filas antes de insertar datos.
-
 ### Problemas Encontrados
 
 - **Errores de Compresión y Formato**
   - Los archivos se estaban subiendo como `.json.gz` en lugar de `.json`, causando errores de compatibilidad.
   - Se corrigieron las configuraciones para usar formatos correctos y evitar errores de conteo de filas y columnas.
+  - Snowflake renombraba automáticamente los archivos con un UUID cuando se usaba `AUTO_COMPRESS=TRUE`, lo que causaba errores al referenciar el archivo en el comando `COPY INTO`.
 
 - **Errores en Procedimientos Almacenados**
   - Varios errores de sintaxis en procedimientos almacenados de Snowflake que requerían ajustes en la lógica.
@@ -38,17 +38,158 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 - **Configuración de FastAPI**
   - Inicialmente, los archivos se estaban subiendo incorrectamente debido a configuraciones en el código de FastAPI.
   - Se ajustaron los métodos de carga para asegurar que los datos se carguen correctamente a Snowflake.
+  - Se detectó que al subir el archivo con `PUT @stage/filename`, Snowflake duplicaba el path del archivo (`stage/filename/filename.gz_uuid`), por lo que se modificó la ruta para evitar subcarpetas y subir directamente al root del stage.
 
 ### Soluciones Aplicadas
 
-- Uso de `INFER_SCHEMA` para validar la estructura de archivos JSON en Snowflake.
+- Pruebas desde SQL worksheet de snowflake para validar formato y contenido de ficheros recibidos desde FastApi
+- Parsear fichero JSON para adpatarlo al formato de fichero esperado por snowflake para carga en tabla (NDJSON)
 - Ajustes en el código para eliminar compresiones innecesarias.
 - Implementación de mensajes de log para facilitar la depuración y monitoreo.
+- Captura del nombre real del archivo renombrado con UUID desde el resultado del comando de snowflake `PUT`, y uso correcto del path en el `COPY INTO`. En caso de que no se necesite paralelizar cargas de subida de archivos
+- Corrección de la ruta del archivo en el `PUT` para evitar estructuras anidadas no deseadas en el stage.
+
+
 
 ### Próximos Pasos
 
 - Implementación de AWS Lambda y API Gateway para hacer el sistema más escalable.
 - Pruebas de carga y optimización del rendimiento para manejo de grandes volúmenes de datos.
+
+
+## Preparación Inicial en Snowflake para el Primer Sprint
+
+Antes de ejecutar la carga y procesamiento desde FastAPI, asegúrate de tener creados y validados los siguientes objetos en Snowflake:
+
+### Creación de Formato de Archivo, Stage y Tabla
+
+```sql
+CREATE OR REPLACE FILE FORMAT json_as_variant
+  TYPE = 'JSON'
+  COMPRESSION = 'GZIP'
+  STRIP_OUTER_ARRAY = FALSE
+  ENABLE_OCTAL = FALSE
+;
+
+CREATE OR REPLACE STAGE leads_internal_stage
+  FILE_FORMAT = json_as_variant;
+
+CREATE OR REPLACE TABLE leads_raw (
+    filename STRING,
+    data VARIANT
+);
+```
+
+### Consultas para Validar Objetos y Archivos en Stage (En este caso se usa un archivo del internal stage subido desde fastapi tmpq4lxyf6a_cleaned.json)
+
+```sql
+-- Ver contenido del stage
+LIST @leads_internal_stage;
+
+-- Consultar datos de la tabla leads_raw
+SELECT * FROM leads_raw;
+```
+
+### Ejemplo de Carga Manual para Validar Copy Into
+
+```sql
+COPY INTO leads_raw(filename, data)
+FROM (
+    SELECT 'tmpq4lxyf6a_cleaned.json.gz' AS filename, $1
+    FROM @leads_internal_stage/tmp0d0wpt2c_cleaned.json/tmp0d0wpt2c_cleaned.json.gz
+)
+FILE_FORMAT = (FORMAT_NAME = 'json_as_variant')
+ON_ERROR = 'CONTINUE';
+
+SELECT * FROM leads_raw;
+```
+
+### Consultas para Inspección de Archivos JSON en Stage
+
+```sql
+SELECT $1:Prospect_ID::STRING 
+FROM @leads_internal_stage/tmpq4lxyf6a_cleaned.json/tmpq4lxyf6a_cleaned.json.gz (FILE_FORMAT => 'json_as_variant') 
+LIMIT 10;
+```
+
+### Procedimiento Almacenado para Validar y Cargar JSON desde Stage
+
+```sql
+CREATE OR REPLACE PROCEDURE validate_and_load_json()
+  RETURNS STRING
+  LANGUAGE JAVASCRIPT
+  EXECUTE AS CALLER
+AS
+$$
+try {
+    snowflake.createStatement({
+        sqlText: `CREATE TEMPORARY TABLE IF NOT EXISTS temp_file_list (filename STRING, row_count NUMBER, column_count NUMBER)`
+    }).execute();
+
+    let fileList = snowflake.createStatement({
+        sqlText: `SELECT DISTINCT METADATA$FILENAME AS filename FROM @leads_internal_stage LIMIT 1`
+    }).execute();
+
+    while (fileList.next()) {
+        let filename = fileList.getColumnValue(1);
+
+        try {
+            let rowCount = snowflake.createStatement({
+                sqlText: `SELECT COUNT(*) FROM @leads_internal_stage/${filename}`
+            }).execute().getColumnValue(1);
+
+            let columnCount = snowflake.createStatement({
+                sqlText: `SELECT COUNT(*) FROM TABLE(INFER_SCHEMA(location=>'@leads_internal_stage/', pattern=>'${filename}'))`
+            }).execute().getColumnValue(1);
+
+            snowflake.createStatement({
+                sqlText: `INSERT INTO temp_file_list (filename, row_count, column_count) VALUES ('${filename}', ${rowCount}, ${columnCount})`
+            }).execute();
+
+        } catch (error) {
+            snowflake.createStatement({
+                sqlText: `INSERT INTO temp_file_list (filename) VALUES ('${filename}')`
+            }).execute();
+            return `Error procesando archivo: ${filename} - ${error}`;
+        }
+    }
+
+    let resultSet = snowflake.createStatement({
+        sqlText: 'SELECT * FROM temp_file_list'
+    }).execute();
+
+    let result = '';
+    while (resultSet.next()) {
+        let filename = resultSet.getColumnValue(1);
+        let rowCount = resultSet.getColumnValue(2) || 0;
+        let columnCount = resultSet.getColumnValue(3) || 0;
+        result += `Archivo: ${filename}, Filas: ${rowCount}, Columnas: ${columnCount}
+`;
+    }
+
+    return result || 'Proceso completado sin errores';
+} catch (e) {
+    return `Error ejecutando el procedimiento: ${e}`;
+}
+$$;
+```
+
+### Consultas para Inspección y Carga Específica
+
+```sql
+SELECT 'tmpmcu1c5l6_cleaned.json.gz' AS filename, $1
+FROM @leads_internal_stage/tmpmcu1c5l6_cleaned.json.gz;
+
+SELECT 
+    filename,
+    data:"Prospect_ID"::STRING AS prospect_id
+FROM leads_raw
+LIMIT 10;
+
+SELECT $1:"prospect_id" AS prospect_id
+FROM @leads_internal_stage/tmprqsaeu0j_cleaned.json/tmprqsaeu0j_cleaned.json.gz
+(FILE_FORMAT => json_as_variant)
+LIMIT 5;
 
 # 🛠️ Configuración del Entorno
 
