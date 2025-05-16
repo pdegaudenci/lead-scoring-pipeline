@@ -75,6 +75,7 @@ async def upload_and_load(file: UploadFile = File(...)):
     return {"status": "File processed and loaded to Snowflake", "filename": file.filename}
  """
 from fastapi import FastAPI, File, UploadFile, Response
+from fastapi.middleware.cors import CORSMiddleware
 from upload_s3 import upload_file
 from snowflake_client import get_connection, upload_to_snowflake
 import tempfile
@@ -88,6 +89,14 @@ import gzip
 
 app = FastAPI()
 
+# Permitir CORS para que el frontend pueda hacer llamadas al backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Puedes restringir esto a solo tu dominio si es necesario
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
