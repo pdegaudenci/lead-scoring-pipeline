@@ -24,7 +24,7 @@ def get_connection():
 
 
         # Intentar realizar una consulta simple para verificar la conexión
-        cursor = conn.cursor()
+        cursor = conn.cursor() # esto es el numero de identificacion de la uuid  de la carga de dtaos de snowflake en la tabla final de leads 
         cursor.execute("SELECT CURRENT_TIMESTAMP")
         result = cursor.fetchone()  # Obtener el resultado de la consulta
         print(f"Conexión a Snowflake exitosa, Timestamp: {result[0]}")

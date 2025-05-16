@@ -101,23 +101,33 @@ async def upload_csv(file: UploadFile = File(...)):
     result = upload_file(file.filename, content)
     
     return {"status": "File uploaded successfully", "filename": result}
-
 @app.get("/leads/")
 def get_leads(limit: int = 10):
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        # Obtener los nombres de las columnas excepto la primera (filename)
+        cursor.execute("""
+            SELECT COLUMN_NAME 
+            FROM LEADS_DB.INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'LEADS_FINAL'
+            AND TABLE_SCHEMA = 'public'
+            AND COLUMN_NAME != 'filename'
+            ORDER BY ORDINAL_POSITION
+        """)
+        
+        # Generar el SQL dinámico para seleccionar todas las columnas excepto la primera
+        columns = [row[0] for row in cursor.fetchall()]
+        columns_sql = ", ".join(columns)
+        
+        # Ejecutar la consulta para recuperar los datos
         cursor.execute(f"""
-            SELECT 
-                filename,
-                data:"Prospect ID"::STRING AS prospect_id,
-                data:"Lead Origin"::STRING AS origin,
-                data:"Lead Score"::NUMBER AS score
-            FROM leads_raw
+            SELECT {columns_sql}
+            FROM LEADS_DB.public.LEADS_FINAL
             LIMIT {limit}
         """)
+        
         rows = cursor.fetchall()
-        columns = [col[0] for col in cursor.description]
         return [dict(zip(columns, row)) for row in rows]
     finally:
         cursor.close()

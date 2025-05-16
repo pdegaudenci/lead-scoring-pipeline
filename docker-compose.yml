@@ -16,7 +16,7 @@ services:
 
   fastapi:
     build:
-      context: .  # Asegura que la ruta del Dockerfile sea correcta
+      context: ./backend  # Ruta ajustada para backend
       dockerfile: Dockerfile  # Si tienes un Dockerfile específico
     container_name: fastapi
     ports:
@@ -30,11 +30,26 @@ services:
       - S3_BUCKET=leads-bucket
       - PYTHONPATH=/app  # Aquí configuramos el PYTHONPATH para que apunte al directorio correcto
     volumes:
-      - ./app:/app  # Asegúrate de que ./app esté en la raíz de tu proyecto
+      - ./backend/app:/app  # Ajustado para la estructura de backend
+    networks:
+      - localstack_network
+
+  frontend:
+    build:
+      context: ./frontend  # Ruta ajustada para frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - fastapi
+    environment:
+      - REACT_APP_API_URL=http://fastapi:8000  # Conectar React con FastAPI
+    volumes:
+      - ./frontend:/app  # Ajustado para la estructura de frontend
     networks:
       - localstack_network
 
 networks:
   localstack_network:
     driver: bridge
-
