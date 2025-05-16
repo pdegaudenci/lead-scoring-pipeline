@@ -24,6 +24,32 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 3. **Validación de Archivos en Snowflake**
    - Procedimientos almacenados para validar la estructura de archivos antes de cargar.
    - Scripts para verificar la existencia de columnas y filas antes de insertar datos.
+   - Pruebas en IU de Snowflake.
+
+### Consideraciones Técnicas para la Carga y Procesamiento de Datos
+
+1. **Separación de Tablas**
+   - Se propone crear una arquitectura en dos niveles:
+     - `leads_raw`: tabla intermedia que almacena los datos en formato JSON crudo.
+     - `leads_final`: tabla destino con los datos desplegados en columnas estructuradas.
+   - Esta separación facilita la validación, trazabilidad y transformación de los datos.
+
+2. **Carga Incremental**
+   - Para evitar duplicados y optimizar el rendimiento, se plantea implementar una estrategia de carga incremental.
+   - Posibles enfoques:
+     - Comparación por identificadores únicos como `Prospect_ID`.
+     - Uso de campos de fecha de actualización o generación de hash/checksum de los registros.
+
+3. **Automatización del Flujo**
+   - Se evaluarán diferentes mecanismos de automatización para manejar la carga de datos de forma eficiente:
+     - **Procedimientos Almacenados (PA):** encapsulan la lógica de validación y carga.
+     - **TASKs:** permiten programar ejecuciones periódicas o encadenadas de PA.
+     - **STREAMs:** detectan nuevos registros en `leads_raw` para alimentar `leads_final`.
+     - **Snowpipe:** automatiza la ingesta continua de archivos al detectar nuevos uploads en el stage.
+
+> Estas consideraciones permitirán escalar el pipeline de forma robusta, controlada y optimizada para entornos de producción.
+
+   
 ### Problemas Encontrados
 
 - **Errores de Compresión y Formato al subir fichero a snowflake**
