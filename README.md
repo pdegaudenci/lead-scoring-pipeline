@@ -394,7 +394,7 @@ echo $S3_BUCKET
 ```
 Probar que aplicacion de fast api se ejecuta correctamente 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 Probar subida de archivo a través del endpoint /upload-and-load/ en FastAPI:
 ```bash
