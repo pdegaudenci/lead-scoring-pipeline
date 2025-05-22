@@ -67,6 +67,29 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 - Captura del nombre renombrado con UUID tras el comando PUT.
 - Ruta correcta en PUT y COPY INTO.
 
+
+#### 📊 Dashboard de Leads
+
+Este proyecto incluye un panel de visualización frontend en React, conectado a un backend FastAPI y una base de datos en Snowflake.
+
+##### 🖥️ Interfaz del Dashboard de Leads
+
+El frontend de la aplicación proporciona un dashboard interactivo con un panel lateral y múltiples secciones visuales para la gestión de leads. Está construido en React y se conecta al backend para visualizar, puntuar y explorar datos directamente desde Snowflake.
+
+##### Características principales
+
+- 📊 Gráficos de desempeño y fuentes de leads
+- 📋 Vista tabular de los datos cargados
+- 🧠 Panel de scoring automático para leads
+
+
+![image](https://github.com/user-attachments/assets/39bd3cc2-cd1c-4208-8bef-73be3da3d5c5)
+
+
+> La imagen anterior representa la vista "Gráficos", donde se muestran análisis visuales sobre puntuación, conversión y actividad de los leads.
+
+---
+
 #### Próximos Pasos
 
 - Implementar AWS Lambda y API Gateway.
