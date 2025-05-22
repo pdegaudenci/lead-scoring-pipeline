@@ -5,12 +5,12 @@
 Crear una solución que reciba datos de leads, realice una puntuación (**scoring**) utilizando un modelo simple y almacene los resultados de manera estructurada en Snowflake. Esto incluye la ingesta de datos desde S3 (simulado con AWS LocalStack), el procesamiento del scoring y la automatización de la carga de datos.
 
 ---
-# 📈 Iterative Development – Sprints Overview (📅 Agile Sprint Plan). 2 Dias
 
+## 📈 Iterative Development – Sprints Overview (📅 Agile Sprint Plan). 2 Días
 
-## Sprint 1 - Procesamiento de Leads
+### Sprint 1 - Procesamiento de Leads
 
-### Funcionalidades Implementadas
+#### Funcionalidades Implementadas
 
 1. **Carga de Archivos CSV y JSON**
    - Procesamiento de archivos CSV para convertirlos a formato JSON.
@@ -26,67 +26,56 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
    - Scripts para verificar la existencia de columnas y filas antes de insertar datos.
    - Pruebas en IU de Snowflake.
 
-### Consideraciones Técnicas para la Carga y Procesamiento de Datos
+#### Consideraciones Técnicas para la Carga y Procesamiento de Datos
 
 1. **Separación de Tablas**
-   - Se propone crear una arquitectura en dos niveles:
-     - `leads_raw`: tabla intermedia que almacena los datos en formato JSON crudo.
-     - `leads_final`: tabla destino con los datos desplegados en columnas estructuradas.
-   - Esta separación facilita la validación, trazabilidad y transformación de los datos.
+   - leads_raw: tabla intermedia que almacena los datos en formato JSON crudo.
+   - leads_final: tabla destino con los datos desplegados en columnas estructuradas.
 
 2. **Carga Incremental**
-   - Para evitar duplicados y optimizar el rendimiento, se plantea implementar una estrategia de carga incremental.
-   - Posibles enfoques:
-     - Comparación por identificadores únicos como `Prospect_ID`.
-     - Uso de campos de fecha de actualización o generación de hash/checksum de los registros.
+   - Comparación por identificadores únicos como Prospect_ID.
+   - Uso de campos de fecha de actualización o generación de hash/checksum.
 
 3. **Automatización del Flujo**
-   - Se evaluarán diferentes mecanismos de automatización para manejar la carga de datos de forma eficiente:
-     - **Procedimientos Almacenados (PA):** encapsulan la lógica de validación y carga.
-     - **TASKs:** permiten programar ejecuciones periódicas o encadenadas de PA.
-     - **STREAMs:** detectan nuevos registros en `leads_raw` para alimentar `leads_final`.
-     - **Snowpipe:** automatiza la ingesta continua de archivos al detectar nuevos uploads en el stage.
+   - **Procedimientos Almacenados (PA):** lógica de validación y carga.
+   - **TASKs:** ejecuciones periódicas o encadenadas.
+   - **STREAMs:** detectan nuevos registros.
+   - **Snowpipe:** automatiza la ingesta continua.
 
 > Estas consideraciones permitirán escalar el pipeline de forma robusta, controlada y optimizada para entornos de producción.
 
-   
-### Problemas Encontrados
+#### Problemas Encontrados
 
-- **Errores de Compresión y Formato al subir fichero a snowflake**
-  - Los archivos se estaban subiendo como `.json.gz` en lugar de `.json`, causando errores de compatibilidad.
-  - Se corrigieron las configuraciones para usar formatos correctos y evitar errores de conteo de filas y columnas.
-  - Snowflake renombraba automáticamente los archivos con un UUID cuando se usaba `AUTO_COMPRESS=TRUE`, lo que causaba errores al referenciar el archivo en el comando `COPY INTO` (Por lo tanto, el fichero se cargaba en la internal stage pero no se cargaba en la tabla destino.)
+- **Errores de Compresión y Formato**
+  - Archivos subidos como .json.gz causaban errores.
+  - Configuración corregida para evitar errores de conteo de filas y columnas.
+  - Snowflake renombraba automáticamente los archivos, dificultando su carga con COPY INTO.
 
 - **Errores en Procedimientos Almacenados**
-  - Varios errores de sintaxis en procedimientos almacenados de Snowflake que requerían ajustes en la lógica.
-  - Manejo adecuado de excepciones y mensajes de error para identificar rápidamente problemas.
+  - Ajustes de sintaxis y lógica en procedimientos.
+  - Mejor manejo de excepciones y mensajes de error.
 
 - **Configuración de FastAPI**
-  - Inicialmente, los archivos se estaban subiendo incorrectamente debido a configuraciones en el código de FastAPI.
-  - Se ajustaron los métodos de carga para asegurar que los datos se carguen correctamente a Snowflake.
-  - Se detectó que al subir el archivo con `PUT @stage/filename`, Snowflake duplicaba el path del archivo (`stage/filename/filename.gz_uuid`), por lo que se modificó la ruta para evitar subcarpetas y subir directamente al root del stage.
+  - Archivos mal subidos por configuraciones incorrectas.
+  - Ajuste de rutas para evitar subcarpetas en stages.
 
-### Soluciones Aplicadas
+#### Soluciones Aplicadas
 
-- Pruebas desde SQL worksheet de snowflake para validar formato y contenido de ficheros recibidos desde FastApi
-- Parsear fichero JSON para adpatarlo al formato de fichero esperado por snowflake para carga en tabla (NDJSON)
-- Ajustes en el código para eliminar compresiones innecesarias.
-- Implementación de mensajes de log para facilitar la depuración y monitoreo.
-- Captura del nombre real del archivo renombrado con UUID desde el resultado del comando de snowflake `PUT`, y uso correcto del path en el `COPY INTO`. En caso de que no se necesite paralelizar cargas de subida de archivos
-- Corrección de la ruta del archivo en el `PUT` para evitar estructuras anidadas no deseadas en el stage.
+- Validación desde Snowflake SQL worksheet.
+- Conversión de JSON a NDJSON.
+- Eliminación de compresión innecesaria.
+- Captura del nombre renombrado con UUID tras el comando PUT.
+- Ruta correcta en PUT y COPY INTO.
 
+#### Próximos Pasos
 
+- Implementar AWS Lambda y API Gateway.
+- Mover lógica de transformación a Snowflake.
+- Pruebas de carga y optimización del rendimiento.
 
-### Próximos Pasos
+---
 
-- Implementación de AWS Lambda y API Gateway para hacer el sistema más escalable.
-- Mover la logica de transformaciones y carga de datos a ecosistema snowflake (Actualmente se ejecuta desde fastapi usando el conector de snowflake) 
-- Pruebas de carga y optimización del rendimiento para manejo de grandes volúmenes de datos.
-
-
-## Preparación Inicial en Snowflake para el Primer Sprint
-
-Antes de ejecutar la carga y procesamiento desde FastAPI, asegúrate de tener creados y validados los siguientes objetos en Snowflake:
+## 🧱 Preparación Inicial en Snowflake
 
 ### Creación de Formato de Archivo, Stage y Tabla
 
@@ -95,8 +84,7 @@ CREATE OR REPLACE FILE FORMAT json_as_variant
   TYPE = 'JSON'
   COMPRESSION = 'GZIP'
   STRIP_OUTER_ARRAY = FALSE
-  ENABLE_OCTAL = FALSE
-;
+  ENABLE_OCTAL = FALSE;
 
 CREATE OR REPLACE STAGE leads_internal_stage
   FILE_FORMAT = json_as_variant;
@@ -107,17 +95,14 @@ CREATE OR REPLACE TABLE leads_raw (
 );
 ```
 
-### Consultas para Validar Objetos y Archivos en Stage (En este caso se usa un archivo del internal stage subido desde fastapi tmpq4lxyf6a_cleaned.json)
+### Consultas para Validar Objetos y Archivos en Stage
 
 ```sql
--- Ver contenido del stage
 LIST @leads_internal_stage;
-
--- Consultar datos de la tabla leads_raw
 SELECT * FROM leads_raw;
 ```
 
-### Ejemplo de Carga Manual para Validar Copy Into
+### Ejemplo de Carga Manual para Validar COPY INTO
 
 ```sql
 COPY INTO leads_raw(filename, data)
@@ -131,15 +116,16 @@ ON_ERROR = 'CONTINUE';
 SELECT * FROM leads_raw;
 ```
 
-### Consultas para Inspección de Archivos JSON en Stage
+### Consultas para Inspección de Archivos JSON
 
 ```sql
 SELECT $1:Prospect_ID::STRING 
-FROM @leads_internal_stage/tmpq4lxyf6a_cleaned.json/tmpq4lxyf6a_cleaned.json.gz (FILE_FORMAT => 'json_as_variant') 
+FROM @leads_internal_stage/tmpq4lxyf6a_cleaned.json/tmpq4lxyf6a_cleaned.json.gz 
+(FILE_FORMAT => 'json_as_variant') 
 LIMIT 10;
 ```
 
-### Procedimiento Almacenado para Validar y Cargar JSON desde Stage
+### Procedimiento Almacenado para Validar y Cargar JSON
 
 ```sql
 CREATE OR REPLACE PROCEDURE validate_and_load_json()
@@ -218,9 +204,12 @@ FROM @leads_internal_stage/tmprqsaeu0j_cleaned.json/tmprqsaeu0j_cleaned.json.gz
 (FILE_FORMAT => json_as_variant)
 LIMIT 5;
 ```
-# 🛠️ Configuración del Entorno
 
-Este proyecto requiere un archivo `.env` con variables de entorno específicas para conectarse a servicios como AWS (LocalStack) y Snowflake. A continuación, se describen los pasos para configurar y ejecutar correctamente el entorno.
+---
+
+## 🛠️ Configuración del Entorno
+
+Este proyecto requiere un archivo `.env` con variables de entorno específicas para conectarse a servicios como AWS (LocalStack) y Snowflake.
 
 ---
 
@@ -237,7 +226,7 @@ AWS_SECRET_ACCESS_KEY=test
 S3_ENDPOINT_URL=http://localstack:4566
 S3_BUCKET=leads-bucket
 
-# Credenciales de Snowflake (En el icono de perfil --> Account --> View account details)
+# Credenciales de Snowflake
 SNOWFLAKE_USER=your_user
 SNOWFLAKE_PASSWORD=your_password
 SNOWFLAKE_ACCOUNT=your_account_id
@@ -246,8 +235,6 @@ SNOWFLAKE_DATABASE=LEADS_DB
 SNOWFLAKE_SCHEMA=PUBLIC
 SNOWFLAKE_ROLE=SYSADMIN
 ```
-
----
 
 ## Componentes necesarios en Snowflake
 
