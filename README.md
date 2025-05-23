@@ -37,9 +37,9 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
    - Uso de campos de fecha de actualización o generación de hash/checksum.
 
 3. **Automatización del Flujo**
-   - **Procedimientos Almacenados (PA):** lógica de validación y carga.
-   - **TASKs:** ejecuciones periódicas o encadenadas.
-   - **STREAMs:** detectan nuevos registros.
+   - **Procedimientos Almacenados (PA):** lógica de validación de ficheros y creacion de tabla a partir de estructura de fichero JSON cargado en internal stage
+   - **TASK:** Carga datos en tabla leads_final.
+   - **STREAMs:** detectan nuevos registros en tabla leads_raw y activa task de carga en tabla final.
    - **Snowpipe:** automatiza la ingesta continua.
 
 > Estas consideraciones permitirán escalar el pipeline de forma robusta, controlada y optimizada para entornos de producción.
@@ -65,7 +65,7 @@ Crear una solución que reciba datos de leads, realice una puntuación (**scorin
 - Conversión de JSON a NDJSON.
 - Eliminación de compresión innecesaria.
 - Captura del nombre renombrado con UUID tras el comando PUT.
-- Ruta correcta en PUT y COPY INTO.
+- Ruta correcta en PUT y COPY INTO. Finalmente, se opta por el siguiente flujo de datos : Snowpipe carga en leads_raw  datos de JSON→ (detected by STREAM) → TASK → inserta en leads_finalleads_raw → (detected by STREAM) → TASK → inserta en leads_final
 
 
 #### 📊 Dashboard de Leads
