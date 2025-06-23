@@ -558,3 +558,81 @@ CALL apply_scoring();
 * Mejorar las reglas de scoring.
 * Crear interfaz para visualizar los resultados.
 * Automatizar despliegue con AWS SAM o Terraform.
+
+# 🚀 Sprint 2: Arquitectura Serverless e Integración en AWS
+
+Como parte de la evolución del proyecto, se implementó una arquitectura serverless completa en AWS, integrando Snowflake, Lambda, API Gateway, S3, CloudFront y otros servicios clave.
+
+---
+
+### ✅ Mejoras en el Backend (FastAPI + AWS Lambda)
+
+- Se adaptó el backend construido con **FastAPI** para ejecutarse en **AWS Lambda** mediante contenedores (Docker) y `Mangum`.
+- Se estructuró la carga segura de variables con un archivo `.env` dentro de `app/env/.env`.
+- Se refactorizó el `Dockerfile` para incluir solo dependencias necesarias y reducir el peso de la imagen.
+- Se conectó correctamente Lambda a Snowflake para operaciones SQL, `PUT` y Snowpipe.
+- Se expusieron endpoints como `/leads`, `/upload`, `/score-lead` y `/lead-count` a través de **API Gateway**.
+
+---
+
+### 🌐 Mejora del Frontend (S3 + CloudFront)
+
+- Se desplegó el frontend como sitio estático en **Amazon S3**.
+- Se creó una distribución de **CloudFront** para servir el sitio globalmente con mejor performance.
+- Se habilitó **CORS** en el backend para aceptar peticiones desde CloudFront y otros orígenes permitidos.
+
+---
+
+### ⚙️ Despliegue con AWS CLI
+
+#### 🔹 Crear repositorio en ECR:
+```bash
+aws ecr create-repository --repository-name lead-scoring-api --region eu-west-1
+```
+
+#### 🔹 Login e imagen Docker:
+```bash
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 109169735576.dkr.ecr.eu-west-1.amazonaws.com
+docker build -t lead-scoring-api .
+docker tag lead-scoring-api:latest 109169735576.dkr.ecr.eu-west-1.amazonaws.com/lead-scoring-api:latest
+docker push 109169735576.dkr.ecr.eu-west-1.amazonaws.com/lead-scoring-api:latest
+```
+
+#### 🔹 Crear función Lambda desde imagen:
+```bash
+aws lambda create-function --function-name lead-scoring-api \
+  --package-type Image \
+  --code ImageUri=109169735576.dkr.ecr.eu-west-1.amazonaws.com/lead-scoring-api:latest \
+  --role arn:aws:iam::109169735576:role/lambda-execution-role \
+  --region eu-west-1 --timeout 60 --memory-size 1024
+```
+
+#### 🔹 API Gateway conectado a Lambda:
+```bash
+aws apigatewayv2 create-api \
+  --name lead-scoring-api \
+  --protocol-type HTTP \
+  --target arn:aws:lambda:eu-west-1:109169735576:function:lead-scoring-api
+```
+
+#### 🔹 Hosting frontend en S3 + CloudFront:
+```bash
+aws s3api create-bucket --bucket frontend-lead-scoring --region eu-west-1
+aws s3 website s3://frontend-lead-scoring/ --index-document index.html
+aws s3 sync ./frontend/dist/ s3://frontend-lead-scoring/
+aws cloudfront create-distribution --origin-domain-name frontend-lead-scoring.s3-website-eu-west-1.amazonaws.com
+```
+
+---
+
+### 🧠 Servicios y funcionalidades integradas
+
+- **Snowflake**: Carga de datos, funciones de scoring, tareas programadas.
+- **AWS Lambda**: Backend sin servidores.
+- **API Gateway**: Exposición de endpoints públicos.
+- **Amazon S3 + CloudFront**: Hosting global del frontend.
+- **AWS SageMaker**: Scoring predictivo de leads.
+- **AWS Athena**: Conteo de registros desde datos crudos en S3.
+- **AWS CloudWatch**: Monitoreo de logs.
+- **PowerCurve (futuro)**: Considerado para administración avanzada de usuarios.
+
