@@ -617,9 +617,9 @@ aws apigatewayv2 create-api \
 
 #### 🔹 Hosting frontend en S3 + CloudFront:
 ```bash
-aws s3api create-bucket --bucket lead-scoring-frontend --region eu-west-1
+aws s3 create-bucket --bucket lead-scoring-frontend --region eu-west-1
 aws s3 website s3://lead-scoring-frontend/ --index-document index.html
-aws s3 sync ./frontend/dist/ s3://lead-scoring-frontend/
+aws s3 sync ./frontend/build/ s3://lead-scoring-frontend/
 aws cloudfront create-distribution --origin-domain-name lead-scoring-frontend.s3-website-eu-west-1.amazonaws.com
 ```
 Obtener id de distribucion de Cloudfront
@@ -706,6 +706,127 @@ aws cloudfront create-invalidation \
   --distribution-id <ID_DE_TU_DISTRIBUCION> \
   --paths "/*"
 ```
+
+
+No te preocupes, aquí te dejo de nuevo el contenido para que puedas copiarlo y también un archivo listo para descargar.
+
+---
+
+### Contenido completo en Markdown:
+
+````markdown
+## Integración Snowflake con AWS S3 usando Storage Integration y rol IAM
+
+Este procedimiento describe cómo configurar un bucket S3 con permisos para que Snowflake pueda cargar datos mediante Snowpipe usando una Storage Integration segura.
+
+### 1. Crear bucket S3
+
+Crea un bucket en AWS S3 donde se subirán los archivos, por ejemplo:
+
+```bash
+aws s3api create-bucket --bucket leads-raw --region eu-west-1 --create-bucket-configuration LocationConstraint=eu-west-1
+````
+
+### 2. Crear rol IAM en AWS con permisos al bucket
+
+* Crea un rol IAM llamado, por ejemplo, `SnowflakeS3AccessRole`.
+* Asigna una política de confianza temporal para poder crear el rol (luego se actualizará).
+* Añade una política inline con permisos:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::leads-raw",
+        "arn:aws:s3:::leads-raw/*"
+      ]
+    }
+  ]
+}
+```
+
+### 3. Crear Storage Integration en Snowflake
+
+Ejecuta el siguiente SQL en Snowflake, reemplazando `<ROL_ARN>` por el ARN completo del rol creado en AWS:
+
+```sql
+CREATE OR REPLACE STORAGE INTEGRATION s3_leads_integration
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = S3
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN = '<ROL_ARN>'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://leads-raw/');
+```
+
+### 4. Obtener parámetros para la política de confianza
+
+Ejecuta:
+
+```sql
+DESC INTEGRATION s3_leads_integration;
+```
+
+Anota los valores:
+
+* `STORAGE_AWS_IAM_USER_ARN`
+* `STORAGE_AWS_EXTERNAL_ID`
+
+### 5. Actualizar política de confianza en AWS IAM
+
+Edita la política de confianza del rol `SnowflakeS3AccessRole` para que luzca así, usando los valores obtenidos:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "<STORAGE_AWS_IAM_USER_ARN>"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "<STORAGE_AWS_EXTERNAL_ID>"
+        }
+      }
+    }
+  ]
+}
+```
+
+### 6. Crear stage en Snowflake
+
+```sql
+CREATE OR REPLACE STAGE leads_internal_stage
+  URL = 's3://leads-raw/'
+  STORAGE_INTEGRATION = s3_leads_integration
+  FILE_FORMAT = json_as_variant;
+```
+
+---
+
+Con esta configuración, Snowflake podrá acceder de forma segura a los archivos en el bucket S3 para cargarlos automáticamente con Snowpipe.
+
+```
+
+---
+
+### Descargar archivo `.md`
+
+Te genero nuevamente el archivo para descargar:
+
+[integracion_snowflake_s3.md](sandbox:/mnt/data/integracion_snowflake_s3.md)
+
+---
+
+Si tienes algún problema para descargar, dime y te ayudo.
+```
+
 ### 🧠 Servicios y funcionalidades integradas
 
 - **Snowflake**: Carga de datos, funciones de scoring, tareas programadas.

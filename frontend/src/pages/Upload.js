@@ -39,7 +39,7 @@ function Upload() {
 
     return (
         <div className="p-4">
-            <h2 className="text-2xl font-bold mb-4">Subir archivo a S3 (LocalStack)</h2>
+            <h2 className="text-2xl font-bold mb-4">Subir archivo a snowflake</h2>
             <form onSubmit={handleSubmit}>
                 <input type="file" onChange={handleChange} className="mb-4" />
                 <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Subir</button>

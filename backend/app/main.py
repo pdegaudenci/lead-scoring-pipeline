@@ -7,12 +7,10 @@ import os
 import pandas as pd
 import logging
 import json
-import boto3
-import uuid
 from mangum import Mangum
 
 from upload_s3 import upload_file
-from snowflake_client import get_connection, upload_to_snowflake, upload_to_snowflake_snowpipe
+from snowflake_client import get_connection, upload_to_snowflake, upload_to_snowflake_snowpipe, upload_to_snowflake_snowpipe_s3
 from sagemaker_client import call_sagemaker
 from athena_client import run_athena_query
 
@@ -94,29 +92,18 @@ async def upload_and_load(file: UploadFile = File(...)):
 @app.post("/upload-and-load-snowpipe/")
 async def upload_and_load_snowpipe(file: UploadFile = File(...)):
     content = await file.read()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
-        tmp_file.write(content)
-        tmp_file_path = tmp_file.name
 
-    cleaned_file_path = tmp_file_path.replace(".csv", "_cleaned.json")
-    try:
-        df = pd.read_csv(tmp_file_path, encoding="latin1")
-        df.fillna("", inplace=True)
-        df.columns = [col.strip().replace(" ", "_") for col in df.columns]
-        with open(cleaned_file_path, "w", encoding="utf-8") as json_file:
-            for record in df.to_dict(orient="records"):
-                json_file.write(json.dumps(record, ensure_ascii=False) + "\n")
-        result = upload_to_snowflake_snowpipe(cleaned_file_path)
-        return {
-            "status": "File processed and loaded to Snowflake",
-            "filename": file.filename,
-            "snowpipe_result": result
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    finally:
-        if os.path.exists(tmp_file_path): os.remove(tmp_file_path)
-        if os.path.exists(cleaned_file_path): os.remove(cleaned_file_path)
+    # Subir archivo directamente a S3
+    s3_filename = upload_file(file.filename, content)
+
+    # Activar Snowpipe usando el archivo ya en S3
+    result = upload_to_snowflake_snowpipe_s3(s3_filename)
+
+    return {
+        "status": "Archivo subido a S3 y Snowpipe activado",
+        "filename": s3_filename,
+        "snowpipe_result": result
+    }
 
 @app.get("/download")
 def download_file():

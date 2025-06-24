@@ -192,3 +192,36 @@ def upload_to_snowflake_snowpipe(filepath: str):
         return {"status": "error", "message": str(e)}
 
 
+def upload_to_snowflake_snowpipe_s3(filename: str):
+    """
+    Activa Snowpipe para un archivo ya cargado al stage desde S3.
+    """
+    import os, requests, logging
+    from urllib.parse import quote_plus
+
+    sf_stage = os.getenv("SNOWFLAKE_STAGE", "leads_internal_stage")
+    pipe_name = os.getenv("SNOWPIPE_NAME")
+    snowflake_account = os.getenv("SNOWFLAKE_ACCOUNT")
+    snowflake_user = os.getenv("SNOWFLAKE_USER")
+    private_key_path = os.getenv("PRIVATE_KEY_PATH")
+
+    if not all([snowflake_account, snowflake_user, pipe_name, private_key_path]):
+        raise Exception("❌ Faltan variables de entorno necesarias.")
+
+    # Generar JWT
+    token = generate_snowflake_jwt()
+    snowflake_host = f"https://{snowflake_account}.snowflakecomputing.com"
+
+    # Activar Snowpipe
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    # ⚠️ Snowpipe necesita el path relativo al stage (no la ruta completa de S3)
+    body = {"files": [{"path": filename}]}
+    url = f"{snowflake_host}/v1/data/pipes/{pipe_name}/insertFiles"
+
+    response = requests.post(url, headers=headers, json=body)
+    response.raise_for_status()
+    return response.json()
