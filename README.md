@@ -625,6 +625,62 @@ aws cloudfront create-distribution --origin-domain-name frontend-lead-scoring.s3
 
 ---
 
+
+#### 🔹Payload de prueba para AWS Lambda:
+
+```bash
+ {
+  "version": "2.0",
+  "routeKey": "GET /leads/",
+  "rawPath": "/leads/",
+  "rawQueryString": "",
+  "headers": {
+    "host": "localhost",
+    "user-agent": "aws-cli/2.0",
+    "x-forwarded-for": "127.0.0.1"
+  },
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/leads/",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "aws-cli/2.0"
+    }
+  },
+  "isBase64Encoded": false
+} 
+```
+
+### Habilitar onfiguración de sitio web estático en bucket
+```bash 
+aws s3 website s3://lead-scoring-frontend/ --index-document index.html --error-document index.html
+```
+---
+
+### 🔓 Permitir acceso público al frontend en S3
+
+Para que CloudFront (o cualquier navegador) pueda servir tu frontend almacenado en S3, debes asegurarte de que los archivos sean públicamente accesibles. Esto se logra aplicando una política de bucket que permita lecturas anónimas.
+
+#### 🛠️ Comando para aplicar política pública al bucket
+
+```bash
+aws s3api put-bucket-policy --bucket lead-scoring-frontend --policy file://<(cat <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::lead-scoring-frontend/*"
+    }
+  ]
+}
+EOF
+)
+```
 ### 🧠 Servicios y funcionalidades integradas
 
 - **Snowflake**: Carga de datos, funciones de scoring, tareas programadas.
