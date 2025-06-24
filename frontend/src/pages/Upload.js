@@ -6,23 +6,36 @@ function Upload() {
     const [file, setFile] = useState(null);
     const [message, setMessage] = useState('');
 
+    const API_BASE = process.env.REACT_APP_API_BASE_URL;
+
     const handleChange = (e) => {
         setFile(e.target.files[0]);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!file) {
+            setMessage('Por favor selecciona un archivo.');
+            return;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
 
         try {
-            const response = await axios.post('http://localhost:8000/upload/', formData);
-            setMessage(response.data.status);
+            const response = await axios.post(`${API_BASE}/upload-and-load-snowpipe/`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            setMessage(`✅ ${response.data.status}`);
         } catch (error) {
-            setMessage('Error al subir el archivo');
+            setMessage('❌ Error al subir el archivo');
             console.error(error);
         }
     };
+
 
     return (
         <div className="p-4">

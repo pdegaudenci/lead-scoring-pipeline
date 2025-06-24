@@ -1,15 +1,15 @@
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 
 export default function Scoring() {
   const [data, setData] = useState([]);
+  const API_BASE = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
-    axios.get("http://localhost:8000/score-all-leads")
+    axios.get(`${API_BASE}/score-all-leads`)
       .then(res => setData(res.data))
       .catch(err => console.error("Error:", err));
-  }, []);
+  }, [API_BASE]);
 
   return (
     <div>
