@@ -617,12 +617,17 @@ aws apigatewayv2 create-api \
 
 #### 🔹 Hosting frontend en S3 + CloudFront:
 ```bash
-aws s3api create-bucket --bucket frontend-lead-scoring --region eu-west-1
-aws s3 website s3://frontend-lead-scoring/ --index-document index.html
-aws s3 sync ./frontend/dist/ s3://frontend-lead-scoring/
-aws cloudfront create-distribution --origin-domain-name frontend-lead-scoring.s3-website-eu-west-1.amazonaws.com
+aws s3api create-bucket --bucket lead-scoring-frontend --region eu-west-1
+aws s3 website s3://lead-scoring-frontend/ --index-document index.html
+aws s3 sync ./frontend/dist/ s3://lead-scoring-frontend/
+aws cloudfront create-distribution --origin-domain-name lead-scoring-frontend.s3-website-eu-west-1.amazonaws.com
 ```
-
+Obtener id de distribucion de Cloudfront
+```bash
+aws cloudfront list-distributions \
+  --query "DistributionList.Items[*].{Id:Id,DomainName:DomainName}" \
+  --output table
+```
 ---
 
 
@@ -680,6 +685,26 @@ aws s3api put-bucket-policy --bucket lead-scoring-frontend --policy file://<(cat
 }
 EOF
 )
+```
+
+## 🚀 Despliegue de Frontend (Lead Scoring)
+
+Cada vez que se modifica el código del frontend, ejecutar los siguientes comandos para actualizar el entorno en producción (S3 + CloudFront):
+
+```bash
+# 1. Generar la build del frontend
+npm run build
+
+# 2. Subir la carpeta 'build/' al bucket de S3
+aws s3 sync ./build/ s3://lead-scoring-frontend --delete
+
+# 3. (Solo si es necesario) Configurar el bucket como sitio web estático
+aws s3 website s3://lead-scoring-frontend/ --index-document index.html
+
+# 4. Invalidar caché de CloudFront para aplicar cambios
+aws cloudfront create-invalidation \
+  --distribution-id <ID_DE_TU_DISTRIBUCION> \
+  --paths "/*"
 ```
 ### 🧠 Servicios y funcionalidades integradas
 
