@@ -2,7 +2,7 @@
 
 ## 📋 Objetivo del Proyecto
 
-Crear una solución que reciba datos de leads, realice una puntuación (**scoring**) utilizando un modelo simple y almacene los resultados de manera estructurada en Snowflake. Esto incluye la ingesta de datos desde S3 (simulado con AWS LocalStack), el procesamiento del scoring y la automatización de la carga de datos.
+Crear una solución que reciba datos de leads, realice una puntuación (**scoring**) utilizando un modelo simple y almacene los resultados de manera estructurada en Snowflake. Esto incluye la ingesta de datos desde S3 (, el procesamiento del scoring y la automatización de la carga de datos.
 
 ---
 
