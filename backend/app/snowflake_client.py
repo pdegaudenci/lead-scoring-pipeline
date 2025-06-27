@@ -5,17 +5,16 @@ from dotenv import load_dotenv
 import logging
 import jwt
 import time
-
 import requests
 from snowflake.connector import connect
 
+# Definir siempre la ruta del .env (aunque no se use en Lambda)
+env_path = Path(__file__).resolve().parent.parent / "env" / ".env"
 
 # Cargar .env solo si no estás en AWS Lambda (Entorno local)
 if not os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
-    #env_path = Path("env") / ".env"
-    # Ruta relativa desde el archivo main.py a la carpeta env
-    env_path = Path(__file__).resolve().parent.parent / "env" / ".env"
     load_dotenv(dotenv_path=env_path)
+
 
 # Autenticacion por jwt con RSA
 def generate_snowflake_jwt():

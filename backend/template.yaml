@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  FastApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Timeout: 10
+      Architectures:
+        - x86_64
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: fastapi-lambda

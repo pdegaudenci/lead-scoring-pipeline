@@ -1,4 +1,4 @@
-# Lead Scoring Pipeline
+ Lead Scoring Pipeline
 
 ## 📋 Objetivo del Proyecto
 
@@ -247,7 +247,7 @@ Crea un archivo `.env` dentro de la carpeta `env/` con el siguiente contenido:
 AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
 S3_ENDPOINT_URL=http://localstack:4566
-S3_BUCKET=leads-bucket
+S3_BUCKET=your-bucket-name
 
 # Credenciales de Snowflake
 SNOWFLAKE_USER=your_user
@@ -264,7 +264,7 @@ SNOWFLAKE_ROLE=SYSADMIN
 | Componente         | Detalle                                       |
 | ------------------ | --------------------------------------------- |
 | Tabla en Snowflake | `leads_raw(filename STRING, data VARIANT)`    |
-| Stage              | Apunta a bucket `leads-bucket` en LocalStack  |
+| Stage              | Apunta a bucket `your-bucket-name` en LocalStack  |
 | Snowpipe           | Carga desde `@mystage` usando `PARSE_JSON`    |
 | FastAPI            | Subir a S3 y luego `REFRESH PIPE` manual      |
 | Consulta           | Lee desde Snowflake y descompone el `VARIANT` |
@@ -583,28 +583,257 @@ Como parte de la evolución del proyecto, se implementó una arquitectura server
 
 ---
 
+### 🧩 Diagnóstico del Problema
+
+#### ❌ Problema Inicial:
+Al invocar una función Lambda construida como imagen Docker (basada en `public.ecr.aws/lambda/python:3.11`) que contiene una aplicación FastAPI adaptada con Mangum:
+
+- Todas las peticiones (como `GET /`) devolvían **404 Not Found** al probar localmente vía Docker.
+- Sin embargo, ejecutando la misma app con `uvicorn` funcionaba correctamente.
+- Para evitar consumir la capa gratuita de AWS Lambda, se decidió probar localmente con **SAM**.
+
+---
+
+### ✅ Causa Raíz
+
+Las imágenes contenedor de Lambda **no ejecutan un servidor web** como `uvicorn`. En su lugar, esperan una **función handler** con el formato `modulo.función`, la cual es invocada por API Gateway u otros eventos Lambda.
+
+Por eso, aunque tu FastAPI funcionaba bien con `uvicorn`, no respondía cuando era invocada por Lambda sin el adaptador adecuado.
+
+---
+
+### 🔧 Pasos de Solución
+
+#### 1. ✅ Estructura correcta en `main.py` con Mangum
+
+ Lambda no entiende directamente las aplicaciones ASGI como FastAPI. Para adaptarlas, se usa **Mangum**, un adaptador que convierte los eventos de Lambda en peticiones compatibles con FastAPI.
+
+```python
+from fastapi import FastAPI
+from mangum import Mangum
+
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"message": "Hello from Lambda"}
+
+handler = Mangum(app)
+```
+
+Esto asegura que la función `handler` pueda ser invocada correctamente por Lambda.
+
+---
+
+#### 2. ✅ Dockerfile
+
+ Lambda espera que el código esté en `/var/task` y que la imagen defina un `CMD` que apunte al handler. También es necesario instalar las dependencias del sistema y de Python en la imagen.
+
+```dockerfile
+FROM public.ecr.aws/lambda/python:3.11
+
+RUN yum install -y gcc gcc-c++ make libffi-devel python3-devel
+
+WORKDIR /var/task
+
+COPY requirements.txt .
+RUN python3 -m pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ app/
+
+CMD ["app.main.handler"]
+```
+
+Esto asegura que la Lambda encuentre el módulo `app.main` y su función `handler`.
+
+---
+
+#### 3. ✅ Archivo `.dockerignore`
+
+Al construir imágenes Docker, incluir archivos innecesarios (como archivos temporales, datos o configuraciones) puede romper el build o aumentar el tamaño de la imagen.
+
+Se añadió un archivo `.dockerignore` para excluir archivos no necesarios:
+
+```
+__pycache__/
+*.py[cod]
+data/
+*.env
+.sam/
+.aws-sam/
+```
+
+Esto evita errores de acceso y mejora la eficiencia del build.
+
+---
+
+#### 4. ✅ `template.yaml` para SAM
+
+`template.yaml` define los recursos que SAM usará para simular la arquitectura en local o desplegarla en AWS. Se configura el timeout, el tipo de paquete (`Image`) y el punto de entrada.
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  FastApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Timeout: 10
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: fastapi-lambda
+```
+
+Así SAM puede construir y ejecutar la función localmente como si estuviera en AWS.
+
+---
+### ⚙️ ¿Qué es AWS SAM?
+
+**AWS SAM (Serverless Application Model)** es un framework open-source para desarrollar, probar y desplegar aplicaciones serverless como AWS Lambda.
+
+> Teoría: SAM usa Docker para emular localmente la ejecución de funciones Lambda, incluyendo eventos HTTP, cron, S3, etc. Es ideal para desarrollo sin consumir AWS.
+
+#### ✅ Ventajas principales:
+- Probar funciones Lambda **localmente** con `sam local invoke` o `sam local start-api`.
+- Evitar consumir la capa gratuita de AWS.
+- Facilita el despliegue a producción con `sam deploy`.
+
+---
+
+### 🚀 Cómo probar localmente
+
+# 🧪 Pruebas locales de endpoints con SAM + script .sh
+
+Este archivo explica **por qué y cómo** automatizar las pruebas de tus endpoints cuando ejecutas tu aplicación FastAPI sobre AWS Lambda **usando `sam local start-api`**.
+
+---
+
+## ✅ ¿Por qué hacer pruebas locales?
+
+Cuando desarrollas una API serverless con FastAPI + Lambda, es común cometer errores de:
+
+- rutas no registradas en `template.yaml`
+- errores de CORS o de conexión
+- estructura incorrecta del handler
+- falta de parámetros obligatorios
+
+Automatizar las pruebas con un script `.sh` permite verificar rápidamente que todos los endpoints:
+
+- están disponibles
+- responden correctamente
+- no devuelven errores 403 o 500
+
+---
+
+## 🚀 PRuebas de endpoints localmente
+
+Se crea un script llamado `tests_endpoints.sh` que lanza peticiones `curl` a cada endpoint y muestra claramente:
+
+- la URL probada
+- el contenido de la respuesta
+- el código de estado HTTP
+
+---
+
+
+## ▶️ Cómo ejecutarlo
+
+1. Asegúrate de tener la app corriendo:
+
+```bash
+sam local start-api
+```
+
+2. En otra terminal, dale permisos al script y ejecútalo:
+
+```bash
+chmod +x tests/test_all.sh
+./tests/test_all.sh
+```
+
+---
+
+## ✅ Resultado esperado
+
+```
+🔹 Testing / (/)
+{"message":"Hello from Lambda"}
+Status: 200
+-----------------------------
+🔹 Testing /healthcheck (/healthcheck)
+{"status":"ok"}
+Status: 200
+-----------------------------
+...
+```
+
+---
+
+## 🧠 Conclusión
+
+El uso de un script `.sh` para pruebas locales con `sam local` es una forma rápida, ligera y efectiva de validar el comportamiento de tus endpoints **antes de desplegar a AWS**, asegurando que:
+
+- la configuración de rutas esté correcta
+- tu función handler funcione como se espera
+- la integración con Snowflake, S3 y SageMaker se pueda probar paso a paso
+
+
+
+```bash
+# Construir la imagen
+sam build --use-container
+
+# Iniciar emulación local de API Gateway
+sam local start-api
+
+# Luego acceder a:
+http://127.0.0.1:3000/
+```
+
+Esto inicia la función Lambda con una interfaz local de API Gateway.
+
+---
+
+### ✅ Resultado Final
+
+- Lambda se ejecuta localmente vía Docker y responde a las solicitudes correctamente.
+- Se eliminan errores 404.
+- No se incurre en costos de uso de AWS para pruebas locales.
+
+
 ### ⚙️ Despliegue con AWS CLI
 
 #### 🔹 Crear repositorio en ECR:
 ```bash
-aws ecr create-repository --repository-name lead-scoring-api --region eu-west-1
+aws ecr create-repository --repository-name lead-scoring-api --region your-region
 ```
 
 #### 🔹 Login e imagen Docker:
 ```bash
-aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 109169735576.dkr.ecr.eu-west-1.amazonaws.com
+aws ecr get-login-password --region your-region | docker login --username AWS --password-stdin your-account-id.dkr.ecr.your-region.amazonaws.com
 docker build -t lead-scoring-api .
-docker tag lead-scoring-api:latest 109169735576.dkr.ecr.eu-west-1.amazonaws.com/lead-scoring-api:latest
-docker push 109169735576.dkr.ecr.eu-west-1.amazonaws.com/lead-scoring-api:latest
+docker tag lead-scoring-api:latest your-account-id.dkr.ecr.your-region.amazonaws.com/lead-scoring-api:latest
+docker push your-account-id.dkr.ecr.your-region.amazonaws.com/lead-scoring-api:latest
 ```
 
 #### 🔹 Crear función Lambda desde imagen:
 ```bash
 aws lambda create-function --function-name lead-scoring-api \
   --package-type Image \
-  --code ImageUri=109169735576.dkr.ecr.eu-west-1.amazonaws.com/lead-scoring-api:latest \
-  --role arn:aws:iam::109169735576:role/lambda-execution-role \
-  --region eu-west-1 --timeout 60 --memory-size 1024
+  --code ImageUri=your-account-id.dkr.ecr.your-region.amazonaws.com/lead-scoring-api:latest \
+  --role arn:aws:iam::your-account-id:role/lambda-execution-role \
+  --region your-region --timeout 60 --memory-size 1024
 ```
 
 #### 🔹 API Gateway conectado a Lambda:
@@ -612,15 +841,15 @@ aws lambda create-function --function-name lead-scoring-api \
 aws apigatewayv2 create-api \
   --name lead-scoring-api \
   --protocol-type HTTP \
-  --target arn:aws:lambda:eu-west-1:109169735576:function:lead-scoring-api
+  --target arn:aws:lambda:your-region:your-account-id:function:lead-scoring-api
 ```
 
 #### 🔹 Hosting frontend en S3 + CloudFront:
 ```bash
-aws s3 create-bucket --bucket lead-scoring-frontend --region eu-west-1
-aws s3 website s3://lead-scoring-frontend/ --index-document index.html
-aws s3 sync ./frontend/build/ s3://lead-scoring-frontend/
-aws cloudfront create-distribution --origin-domain-name lead-scoring-frontend.s3-website-eu-west-1.amazonaws.com
+aws s3 create-bucket --bucket your-frontend-bucket --region your-region
+aws s3 website s3://your-frontend-bucket/ --index-document index.html
+aws s3 sync ./frontend/build/ s3://your-frontend-bucket/
+aws cloudfront create-distribution --origin-domain-name your-frontend-bucket.s3-website-your-region.amazonaws.com
 ```
 Obtener id de distribucion de Cloudfront
 ```bash
@@ -659,7 +888,7 @@ aws cloudfront list-distributions \
 
 ### Habilitar onfiguración de sitio web estático en bucket
 ```bash 
-aws s3 website s3://lead-scoring-frontend/ --index-document index.html --error-document index.html
+aws s3 website s3://your-frontend-bucket/ --index-document index.html --error-document index.html
 ```
 ---
 
@@ -670,7 +899,7 @@ Para que CloudFront (o cualquier navegador) pueda servir tu frontend almacenado 
 #### 🛠️ Comando para aplicar política pública al bucket
 
 ```bash
-aws s3api put-bucket-policy --bucket lead-scoring-frontend --policy file://<(cat <<EOF
+aws s3api put-bucket-policy --bucket your-frontend-bucket --policy file://<(cat <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -679,7 +908,7 @@ aws s3api put-bucket-policy --bucket lead-scoring-frontend --policy file://<(cat
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::lead-scoring-frontend/*"
+      "Resource": "arn:aws:s3:::your-frontend-bucket/*"
     }
   ]
 }
@@ -696,25 +925,42 @@ Cada vez que se modifica el código del frontend, ejecutar los siguientes comand
 npm run build
 
 # 2. Subir la carpeta 'build/' al bucket de S3
-aws s3 sync ./build/ s3://lead-scoring-frontend --delete
+aws s3 sync ./build/ s3://your-frontend-bucket --delete
 
 # 3. (Solo si es necesario) Configurar el bucket como sitio web estático
-aws s3 website s3://lead-scoring-frontend/ --index-document index.html
+aws s3 website s3://your-frontend-bucket/ --index-document index.html
 
 # 4. Invalidar caché de CloudFront para aplicar cambios
 aws cloudfront create-invalidation \
-  --distribution-id <ID_DE_TU_DISTRIBUCION> \
+  --distribution-id <your-distribution-id> \
   --paths "/*"
 ```
+### Payload para probar AWS Lambda desde consola 
 
+```json
+{
+  "version": "2.0",
+  "routeKey": "GET /healthcheck",
+  "rawPath": "/healthcheck",
+  "rawQueryString": "",
+  "headers": {
+    "host": "your-api-id.execute-api.your-region.amazonaws.com",
+    "user-agent": "curl/7.64.1",
+    "accept": "*/*"
+  },
+  "requestContext": {
+    "http": {
+      "method": "GET",
+      "path": "/healthcheck",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "127.0.0.1",
+      "userAgent": "curl/7.64.1"
+    }
+  },
+  "isBase64Encoded": false
+}
+```
 
-No te preocupes, aquí te dejo de nuevo el contenido para que puedas copiarlo y también un archivo listo para descargar.
-
----
-
-### Contenido completo en Markdown:
-
-````markdown
 ## Integración Snowflake con AWS S3 usando Storage Integration y rol IAM
 
 Este procedimiento describe cómo configurar un bucket S3 con permisos para que Snowflake pueda cargar datos mediante Snowpipe usando una Storage Integration segura.
@@ -724,7 +970,7 @@ Este procedimiento describe cómo configurar un bucket S3 con permisos para que 
 Crea un bucket en AWS S3 donde se subirán los archivos, por ejemplo:
 
 ```bash
-aws s3api create-bucket --bucket leads-raw --region eu-west-1 --create-bucket-configuration LocationConstraint=eu-west-1
+aws s3api create-bucket --bucket your-bucket-name --region your-region --create-bucket-configuration LocationConstraint=your-region
 ````
 
 ### 2. Crear rol IAM en AWS con permisos al bucket
@@ -741,8 +987,8 @@ aws s3api create-bucket --bucket leads-raw --region eu-west-1 --create-bucket-co
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:ListBucket"],
       "Resource": [
-        "arn:aws:s3:::leads-raw",
-        "arn:aws:s3:::leads-raw/*"
+        "arn:aws:s3:::your-bucket-name",
+        "arn:aws:s3:::your-bucket-name/*"
       ]
     }
   ]
@@ -759,7 +1005,7 @@ CREATE OR REPLACE STORAGE INTEGRATION s3_leads_integration
   STORAGE_PROVIDER = S3
   ENABLED = TRUE
   STORAGE_AWS_ROLE_ARN = '<ROL_ARN>'
-  STORAGE_ALLOWED_LOCATIONS = ('s3://leads-raw/');
+  STORAGE_ALLOWED_LOCATIONS = ('s3://your-bucket-name/');
 ```
 
 ### 4. Obtener parámetros para la política de confianza
@@ -803,29 +1049,13 @@ Edita la política de confianza del rol `SnowflakeS3AccessRole` para que luzca a
 
 ```sql
 CREATE OR REPLACE STAGE leads_internal_stage
-  URL = 's3://leads-raw/'
+  URL = 's3://your-bucket-name/'
   STORAGE_INTEGRATION = s3_leads_integration
   FILE_FORMAT = json_as_variant;
 ```
 
----
 
-Con esta configuración, Snowflake podrá acceder de forma segura a los archivos en el bucket S3 para cargarlos automáticamente con Snowpipe.
 
-```
-
----
-
-### Descargar archivo `.md`
-
-Te genero nuevamente el archivo para descargar:
-
-[integracion_snowflake_s3.md](sandbox:/mnt/data/integracion_snowflake_s3.md)
-
----
-
-Si tienes algún problema para descargar, dime y te ayudo.
-```
 
 ### 🧠 Servicios y funcionalidades integradas
 

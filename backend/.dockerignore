@@ -1,0 +1,32 @@
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Configuración de entorno
+.env
+*.env
+
+# Carpeta de datos (opcionalmente puedes dejar solo el CSV)
+data/
+# o solo esto si quieres permitir la carpeta pero excluir el archivo conflictivo:
+# data/SampleData.csv
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de SAM o builds previos
+.sam/
+.aws-sam/
+*.log
+
+# Carpetas de IDEs/editors
+.vscode/
+.idea/
+
+# Otros
+*.zip
+*.tar.gz
+*.bak

@@ -1,23 +1,57 @@
+# ⚙️ Entornos y variables sensibles
 .env
-# Node modules
-node_modules/
+env/
+env/.env
+**/.env
 
-# Logs
+# 🧪 Cachés y temporales de test
+__pycache__/
+.pytest_cache/
+*.pytest_cache/
+
+# 🐍 Entornos Python virtuales
+.venv/
+venv/
+
+# 🧱 Node.js
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
-.env
+# 🏗️ Archivos generados por el build
+build/
+dist/
+frontend/build/
 
-# OS-specific files
+# 🐳 Docker
+*.log
+*.pid
+*.sock
+docker-compose.override.yml
+
+# 🧪 Archivos temporales o pruebas
+data/*.csv
+data/*.json
+data/*.gz
+data/*.parquet
+data/*.xlsx
+data/*_cleaned.*
+
+# 💻 IDE y editor
+.vscode/
+.idea/
+
+# 🧹 Archivos del sistema operativo
 .DS_Store
 Thumbs.db
 
-# Build output
-dist/
-build/
+# 🧪 Configuraciones temporales de AWS SAM y otras herramientas
+.aws-sam/
+.sam/
+*.iml
 
-# Optional: editor/IDE settings
-.vscode/
-.idea/
+# ⚠️ Ignorar archivos sensibles exportados
+*.md~  # backups temporales
+*.bak
+*.orig

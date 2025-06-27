@@ -1,23 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, Response, Query,HTTPException
+from fastapi import FastAPI, File, UploadFile, Response, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import tempfile
-import os
-import pandas as pd
-import logging
-import json
-import boto3
-from mangum import Mangum
-
-from .upload_s3 import upload_file
-from .snowflake_client import get_connection, upload_to_snowflake, upload_to_snowflake_snowpipe, upload_to_snowflake_snowpipe_s3
-from .sagemaker_client import call_sagemaker
-from .athena_client import run_athena_query
 
 app = FastAPI()
 
-# Configurar CORS
+# CORS configuration
 origins = [
     "http://localhost:3000",
     "http://localhost:8000",
@@ -27,34 +15,35 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Ajustar para prod
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+@app.get("/")
+def root():
+    return {"message": "Hello from Lambda"}
+
 @app.get("/healthcheck")
 def healthcheck():
-    return {"status": "ok", "message": "API Gateway y Lambda están funcionando"}
+    return {"status": "ok"}
 
-@app.post("/upload/")
+@app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
+    from .upload_s3 import upload_file
     content = await file.read()
     result = upload_file(file.filename, content)
     return {"status": "File uploaded successfully", "filename": result}
 
-
-s3_client = boto3.client("s3")
-BUCKET_NAME = "leads-raw"
-
-
-
-@app.get("/generate-presigned-url/")
+@app.get("/generate-presigned-url")
 def generate_presigned_url(filename: str = Query(...), content_type: str = Query(...)):
+    import logging
+    import boto3
+
+    s3_client = boto3.client("s3")
+    BUCKET_NAME = "leads-raw"
     logging.info("generate_presigned_url called")
-    logging.info(f"Params - filename: {filename}, content_type: {content_type}")
     try:
         presigned_url = s3_client.generate_presigned_url(
             'put_object',
@@ -64,21 +53,25 @@ def generate_presigned_url(filename: str = Query(...), content_type: str = Query
         return {"url": presigned_url, "key": filename}
     except Exception as e:
         logging.error(f"Error generating presigned URL: {e}", exc_info=True)
-        # Levanta un error HTTP 500 con el detalle (solo para desarrollo, quitar detalle en prod)
         raise HTTPException(status_code=500, detail=f"Error generating presigned URL: {str(e)}")
 
-
-@app.post("/process-s3-file/")
+@app.post("/process-s3-file")
 async def process_s3_file(payload: dict):
+    from .snowflake_client import upload_to_snowflake_snowpipe_s3
+    import logging
+
     s3_key = payload.get("s3_key")
     if not s3_key:
-        return {"status": "error", "message": "No s3_key provided"}
+        raise HTTPException(status_code=400, detail="Missing s3_key in payload")
 
     logging.info(f"Processing file in S3: {s3_key}")
     result = upload_to_snowflake_snowpipe_s3(s3_key)
     return {"status": "processed", "result": result}
-@app.get("/leads/")
+
+
+@app.get("/leads")
 def get_leads(limit: int = 10):
+    from .snowflake_client import get_connection
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -91,11 +84,7 @@ def get_leads(limit: int = 10):
         """)
         columns = [f'"{row[0]}"' for row in cursor.fetchall()][2:]
         columns_sql = ", ".join(columns)
-        cursor.execute(f"""
-            SELECT {columns_sql}
-            FROM LEADS_DB.PUBLIC.LEADS_FINAL
-            LIMIT {limit}
-        """)
+        cursor.execute(f"""SELECT {columns_sql} FROM LEADS_DB.PUBLIC.LEADS_FINAL LIMIT {limit}""")
         rows = cursor.fetchall()
         clean_columns = [col.replace('"', '') for col in columns]
         return [dict(zip(clean_columns, row)) for row in rows]
@@ -103,8 +92,13 @@ def get_leads(limit: int = 10):
         cursor.close()
         conn.close()
 
-@app.post("/upload-and-load/")
+@app.post("/upload-and-load")
 async def upload_and_load(file: UploadFile = File(...)):
+    import tempfile, os
+    import pandas as pd
+    from .upload_s3 import upload_file
+    from .snowflake_client import upload_to_snowflake
+
     content = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
         tmp_file.write(content)
@@ -113,7 +107,6 @@ async def upload_and_load(file: UploadFile = File(...)):
     df = pd.read_csv(tmp_file_path, encoding="latin1")
     df.fillna("", inplace=True)
     df.columns = [col.strip().replace(" ", "_") for col in df.columns]
-
     cleaned_file_path = tmp_file_path.replace(".csv", "_cleaned.csv")
     df.to_csv(cleaned_file_path, index=False)
 
@@ -125,14 +118,13 @@ async def upload_and_load(file: UploadFile = File(...)):
 
     return {"status": "File processed and loaded to Snowflake", "filename": file.filename}
 
-@app.post("/upload-and-load-snowpipe/")
+@app.post("/upload-and-load-snowpipe")
 async def upload_and_load_snowpipe(file: UploadFile = File(...)):
+    from .upload_s3 import upload_file
+    from .snowflake_client import upload_to_snowflake_snowpipe_s3
+
     content = await file.read()
-
-    # Subir archivo directamente a S3
     s3_filename = upload_file(file.filename, content)
-
-    # Activar Snowpipe usando el archivo ya en S3
     result = upload_to_snowflake_snowpipe_s3(s3_filename)
 
     return {
@@ -143,6 +135,8 @@ async def upload_and_load_snowpipe(file: UploadFile = File(...)):
 
 @app.get("/download")
 def download_file():
+    from fastapi import Response
+    from .snowflake_client import get_connection
     conn = get_connection()
     cursor = conn.cursor()
     sql = """
@@ -169,6 +163,7 @@ class LeadScore(BaseModel):
 
 @app.get("/score-all-leads", response_model=List[LeadScore])
 def score_all_leads():
+    from .snowflake_client import get_connection
     query = """
         SELECT 
             "Lead_Number" AS id,
@@ -196,16 +191,41 @@ def score_all_leads():
         })
     return result
 
-@app.post("/score-lead/")
+@app.post("/score-lead")
 def score_lead(payload: dict):
+    from .sagemaker_client import call_sagemaker
     result = call_sagemaker(payload)
     return result
 
 @app.get("/lead-count")
 def count_leads():
+    from .athena_client import run_athena_query
     query = "SELECT COUNT(*) AS total FROM leads_raw"
     result = run_athena_query(query)
     return {"total": result}
+@app.post("/test-upload-s3-file")
+def test_upload_s3_file():
+    """
+    Simula que un archivo llamado 'demo_test.csv' ya fue subido a S3
+    y lo procesa con Snowpipe.
+    """
+    from .snowflake_client import upload_to_snowflake_snowpipe_s3
+    import logging
 
-# Adaptador Lambda
+    test_filename = "demo_test.csv"  # cambia por un archivo real que hayas subido
+    logging.info(f"[TEST] Simulating processing of S3 file: {test_filename}")
+
+    try:
+        result = upload_to_snowflake_snowpipe_s3(test_filename)
+        return {
+            "status": "success",
+            "message": f"Archivo '{test_filename}' procesado con Snowpipe",
+            "snowpipe_result": result
+        }
+    except Exception as e:
+        logging.error(f"[TEST] Error processing test file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Lambda adapter
+from mangum import Mangum
 handler = Mangum(app)

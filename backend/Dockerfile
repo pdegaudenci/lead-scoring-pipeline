@@ -20,15 +20,20 @@
 # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
 FROM public.ecr.aws/lambda/python:3.11
 
-# Establece el directorio de trabajo dentro del contenedor
-WORKDIR /app
+# Instala herramientas del sistema necesarias para compilar paquetes
+RUN yum install -y gcc gcc-c++ make libffi-devel python3-devel
 
-# Copia el archivo de dependencias e instala
+# Lambda busca los archivos en /var/task
+WORKDIR /var/task
+
 COPY requirements.txt .
+
+# Actualiza pip y luego instala requirements
+RUN python3 -m pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia todo el contenido de backend (donde estás)
-COPY . .
+# 👇 Copia correctamente la carpeta 'app' al lugar correcto
+COPY app/ app/
 
-# Comando para Lambda
+# Lambda ejecutará handler en app/main.py
 CMD ["app.main.handler"]
