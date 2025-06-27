@@ -3,7 +3,8 @@
 BASE_URL="http://127.0.0.1:3000"
 FILENAME="SampleData.csv"
 CONTENT_TYPE="text/csv"
-LOCAL_FILE_PATH="data/$FILENAME"
+LOCAL_FILE_PATH="../data/$FILENAME"
+
 
 function test_endpoint() {
   local ENDPOINT=$1
