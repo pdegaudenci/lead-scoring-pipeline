@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Response
+from fastapi import FastAPI, File, UploadFile, Response, Query,HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -7,12 +7,13 @@ import os
 import pandas as pd
 import logging
 import json
+import boto3
 from mangum import Mangum
 
-from upload_s3 import upload_file
-from snowflake_client import get_connection, upload_to_snowflake, upload_to_snowflake_snowpipe, upload_to_snowflake_snowpipe_s3
-from sagemaker_client import call_sagemaker
-from athena_client import run_athena_query
+from .upload_s3 import upload_file
+from .snowflake_client import get_connection, upload_to_snowflake, upload_to_snowflake_snowpipe, upload_to_snowflake_snowpipe_s3
+from .sagemaker_client import call_sagemaker
+from .athena_client import run_athena_query
 
 app = FastAPI()
 
@@ -26,7 +27,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Ajustar para prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +35,9 @@ app.add_middleware(
 
 # Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+@app.get("/healthcheck")
+def healthcheck():
+    return {"status": "ok", "message": "API Gateway y Lambda están funcionando"}
 
 @app.post("/upload/")
 async def upload_csv(file: UploadFile = File(...)):
@@ -41,6 +45,38 @@ async def upload_csv(file: UploadFile = File(...)):
     result = upload_file(file.filename, content)
     return {"status": "File uploaded successfully", "filename": result}
 
+
+s3_client = boto3.client("s3")
+BUCKET_NAME = "leads-raw"
+
+
+
+@app.get("/generate-presigned-url/")
+def generate_presigned_url(filename: str = Query(...), content_type: str = Query(...)):
+    logging.info("generate_presigned_url called")
+    logging.info(f"Params - filename: {filename}, content_type: {content_type}")
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            'put_object',
+            Params={'Bucket': BUCKET_NAME, 'Key': filename, 'ContentType': content_type},
+            ExpiresIn=3600
+        )
+        return {"url": presigned_url, "key": filename}
+    except Exception as e:
+        logging.error(f"Error generating presigned URL: {e}", exc_info=True)
+        # Levanta un error HTTP 500 con el detalle (solo para desarrollo, quitar detalle en prod)
+        raise HTTPException(status_code=500, detail=f"Error generating presigned URL: {str(e)}")
+
+
+@app.post("/process-s3-file/")
+async def process_s3_file(payload: dict):
+    s3_key = payload.get("s3_key")
+    if not s3_key:
+        return {"status": "error", "message": "No s3_key provided"}
+
+    logging.info(f"Processing file in S3: {s3_key}")
+    result = upload_to_snowflake_snowpipe_s3(s3_key)
+    return {"status": "processed", "result": result}
 @app.get("/leads/")
 def get_leads(limit: int = 10):
     conn = get_connection()
