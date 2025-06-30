@@ -8,6 +8,9 @@ urllib3==2.5.0
 python-dateutil==2.9.0.post0
 numpy==1.23.5
 python-dotenv
+deprecated
+
+chardet
 
 # web API
 fastapi

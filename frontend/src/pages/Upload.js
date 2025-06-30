@@ -24,11 +24,12 @@ function Upload() {
         formData.append('file', file);
 
         try {
-            const response = await axios.post(`${API_BASE}/upload-and-load-snowpipe/`, formData, {
+            const response = await axios.post(`${API_BASE}/clean-upload-and-generate-url`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
+            
             setMessage(`✅ ${response.data.status}`);
         } catch (error) {
             setMessage('❌ Error al subir el archivo');

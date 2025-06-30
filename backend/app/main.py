@@ -2,14 +2,16 @@ from fastapi import FastAPI, File, UploadFile, Response, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from deprecated import deprecated
 
 app = FastAPI()
 
 # CORS configuration
 origins = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "https://redesigned-space-fortnight-q6wqxvxwpjr24gxr.github.dev",
+    # "http://localhost:3000",
+    # "http://localhost:3001",
+    # "http://localhost:8000",
+    # "https://redesigned-space-fortnight-q6wqxvxwpjr24gxr.github.dev",
     "*"
 ]
 
@@ -29,6 +31,7 @@ def root():
 def healthcheck():
     return {"status": "ok"}
 
+@deprecated(reason="Usa la función `/generate-presigned-url` en su lugar.")
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...)):
     from .upload_s3 import upload_file
@@ -36,25 +39,78 @@ async def upload_csv(file: UploadFile = File(...)):
     result = upload_file(file.filename, content)
     return {"status": "File uploaded successfully", "filename": result}
 
-@app.get("/generate-presigned-url")
-def generate_presigned_url(filename: str = Query(...), content_type: str = Query(...)):
-    import logging
+@app.post("/clean-upload-and-generate-url")
+async def clean_upload_and_generate_url(file: UploadFile = File(...)):
+    import tempfile, os
+    import pandas as pd
     import boto3
+    import chardet
+    import logging
+    from fastapi import HTTPException
+    from .upload_s3 import upload_file  # función que sube a S3 y devuelve la key
 
-    s3_client = boto3.client("s3")
     BUCKET_NAME = "leads-raw"
-    logging.info("generate_presigned_url called")
-    try:
-        presigned_url = s3_client.generate_presigned_url(
-            'put_object',
-            Params={'Bucket': BUCKET_NAME, 'Key': filename, 'ContentType': content_type},
-            ExpiresIn=3600
-        )
-        return {"url": presigned_url, "key": filename}
-    except Exception as e:
-        logging.error(f"Error generating presigned URL: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error generating presigned URL: {str(e)}")
+    s3_client = boto3.client("s3")
 
+    try:
+        # 1. Guardar contenido temporalmente
+        content = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+
+        # 2. Detectar encoding automáticamente
+        with open(tmp_file_path, 'rb') as f:
+            raw_data = f.read()
+            result = chardet.detect(raw_data)
+            detected_encoding = result['encoding'] or 'latin1'
+            logging.info(f"Encoding detectado: {detected_encoding}")
+
+        # 3. Leer y limpiar CSV con pandas
+        try:
+            df = pd.read_csv(tmp_file_path, encoding=detected_encoding, errors="replace")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Error leyendo el CSV: {str(e)}")
+
+        df.fillna("", inplace=True)
+        df.columns = [col.strip().replace(" ", "_") for col in df.columns]
+
+        # 4. Guardar archivo limpio
+        cleaned_file_path = tmp_file_path.replace(".csv", "_cleaned.csv")
+        df.to_csv(cleaned_file_path, index=False)
+
+        # 5. Subir a S3
+        with open(cleaned_file_path, "rb") as cleaned_file:
+            cleaned_content = cleaned_file.read()
+            cleaned_filename = file.filename.replace(".csv", "_cleaned.csv")
+            s3_key = upload_file(cleaned_filename, cleaned_content)
+
+        # 6. (Opcional) Generar URL de descarga firmada
+        try:
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': BUCKET_NAME, 'Key': s3_key},
+                ExpiresIn=3600
+            )
+        except Exception as e:
+            logging.warning(f"No se pudo generar URL firmada: {e}")
+            presigned_url = None
+
+        return {
+            "status": "Archivo limpiado y subido a S3",
+            "filename": cleaned_filename,
+            "s3_key": s3_key,
+            "download_url": presigned_url
+        }
+
+    finally:
+        # 7. Limpieza de archivos temporales
+        if os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path)
+        if 'cleaned_file_path' in locals() and os.path.exists(cleaned_file_path):
+            os.remove(cleaned_file_path)
+
+@deprecated(reason="Usa la función `/generate-presigned-url` en su lugar.")
 @app.post("/process-s3-file")
 async def process_s3_file(payload: dict):
     from .snowflake_client import upload_to_snowflake_snowpipe_s3
@@ -92,6 +148,8 @@ def get_leads(limit: int = 10):
         cursor.close()
         conn.close()
 
+
+@deprecated(reason="Usa la función `/generate-presigned-url` en su lugar.")
 @app.post("/upload-and-load")
 async def upload_and_load(file: UploadFile = File(...)):
     import tempfile, os
@@ -118,6 +176,8 @@ async def upload_and_load(file: UploadFile = File(...)):
 
     return {"status": "File processed and loaded to Snowflake", "filename": file.filename}
 
+
+@deprecated(reason="Usa la función `/generate-presigned-url` en su lugar.")
 @app.post("/upload-and-load-snowpipe")
 async def upload_and_load_snowpipe(file: UploadFile = File(...)):
     from .upload_s3 import upload_file
