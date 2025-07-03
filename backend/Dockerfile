@@ -18,22 +18,33 @@
 
 # # Comando para ejecutar FastAPI con Uvicorn
 # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+# FROM public.ecr.aws/lambda/python:3.11
+
+# # Instala herramientas del sistema necesarias para compilar paquetes
+# RUN yum install -y gcc gcc-c++ make libffi-devel python3-devel
+
+# # Lambda busca los archivos en /var/task
+# WORKDIR /var/task
+
+# COPY requirements.txt .
+
+# # Actualiza pip y luego instala requirements
+# RUN python3 -m pip install --upgrade pip
+# RUN pip install --no-cache-dir -r requirements.txt
+
+# # 👇 Copia correctamente la carpeta 'app' al lugar correcto
+# COPY app/ app/
+
+# # Lambda ejecutará handler en app/main.py
+# CMD ["app.main.handler"]
 FROM public.ecr.aws/lambda/python:3.11
 
-# Instala herramientas del sistema necesarias para compilar paquetes
-RUN yum install -y gcc gcc-c++ make libffi-devel python3-devel
-
-# Lambda busca los archivos en /var/task
-WORKDIR /var/task
-
+# Copia código
+COPY app/ ${LAMBDA_TASK_ROOT}/app
 COPY requirements.txt .
 
-# Actualiza pip y luego instala requirements
-RUN python3 -m pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+# Instala dependencias
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# 👇 Copia correctamente la carpeta 'app' al lugar correcto
-COPY app/ app/
-
-# Lambda ejecutará handler en app/main.py
+# Default handler
 CMD ["app.main.handler"]

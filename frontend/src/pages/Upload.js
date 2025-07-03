@@ -24,6 +24,8 @@ function Upload() {
         formData.append('file', file);
 
         try {
+            console.log("API_BASE:", API_BASE);
+
             const response = await axios.post(`${API_BASE}/clean-upload-and-generate-url`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'

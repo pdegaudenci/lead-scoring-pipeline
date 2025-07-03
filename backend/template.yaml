@@ -5,6 +5,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
+      ImageUri: fastapi-backend:latest
       Timeout: 10
       Architectures:
         - x86_64
